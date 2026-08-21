@@ -1,0 +1,144 @@
+[gd_scene load_steps=7 format=3]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_boundary_horizontal"]
+size = Vector2(1800, 64)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_boundary_vertical"]
+size = Vector2(64, 3000)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_passage_wall"]
+size = Vector2(696, 180)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_square_obstacle"]
+size = Vector2(220, 220)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wide_obstacle"]
+size = Vector2(500, 180)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_tall_obstacle"]
+size = Vector2(300, 600)
+
+[node name="TestWorld" type="Node2D"]
+
+[node name="Background" type="Polygon2D" parent="."]
+z_index = -10
+polygon = PackedVector2Array(0, 0, 1800, 0, 1800, 3000, 0, 3000)
+color = Color(0.075, 0.105, 0.09, 1)
+
+[node name="NorthernArea" type="Polygon2D" parent="."]
+z_index = -9
+polygon = PackedVector2Array(96, 96, 1704, 96, 1704, 600, 96, 600)
+color = Color(0.1, 0.17, 0.18, 1)
+
+[node name="OpenArea" type="Polygon2D" parent="."]
+z_index = -9
+polygon = PackedVector2Array(96, 850, 1704, 850, 1704, 2050, 96, 2050)
+color = Color(0.11, 0.16, 0.1, 1)
+
+[node name="SouthernArea" type="Polygon2D" parent="."]
+z_index = -9
+polygon = PackedVector2Array(96, 2100, 1704, 2100, 1704, 2904, 96, 2904)
+color = Color(0.16, 0.11, 0.1, 1)
+
+[node name="WorldBoundaries" type="StaticBody2D" parent="."]
+
+[node name="TopWall" type="Polygon2D" parent="WorldBoundaries"]
+position = Vector2(900, 32)
+polygon = PackedVector2Array(-900, -32, 900, -32, 900, 32, -900, 32)
+color = Color(0.25, 0.29, 0.34, 1)
+
+[node name="TopWallCollision" type="CollisionShape2D" parent="WorldBoundaries"]
+position = Vector2(900, 32)
+shape = SubResource("RectangleShape2D_boundary_horizontal")
+
+[node name="BottomWall" type="Polygon2D" parent="WorldBoundaries"]
+position = Vector2(900, 2968)
+polygon = PackedVector2Array(-900, -32, 900, -32, 900, 32, -900, 32)
+color = Color(0.25, 0.29, 0.34, 1)
+
+[node name="BottomWallCollision" type="CollisionShape2D" parent="WorldBoundaries"]
+position = Vector2(900, 2968)
+shape = SubResource("RectangleShape2D_boundary_horizontal")
+
+[node name="LeftWall" type="Polygon2D" parent="WorldBoundaries"]
+position = Vector2(32, 1500)
+polygon = PackedVector2Array(-32, -1500, 32, -1500, 32, 1500, -32, 1500)
+color = Color(0.25, 0.29, 0.34, 1)
+
+[node name="LeftWallCollision" type="CollisionShape2D" parent="WorldBoundaries"]
+position = Vector2(32, 1500)
+shape = SubResource("RectangleShape2D_boundary_vertical")
+
+[node name="RightWall" type="Polygon2D" parent="WorldBoundaries"]
+position = Vector2(1768, 1500)
+polygon = PackedVector2Array(-32, -1500, 32, -1500, 32, 1500, -32, 1500)
+color = Color(0.25, 0.29, 0.34, 1)
+
+[node name="RightWallCollision" type="CollisionShape2D" parent="WorldBoundaries"]
+position = Vector2(1768, 1500)
+shape = SubResource("RectangleShape2D_boundary_vertical")
+
+[node name="Obstacles" type="StaticBody2D" parent="."]
+
+[node name="PassageLeft" type="Polygon2D" parent="Obstacles"]
+position = Vector2(412, 720)
+polygon = PackedVector2Array(-348, -90, 348, -90, 348, 90, -348, 90)
+color = Color(0.55, 0.32, 0.22, 1)
+
+[node name="PassageLeftCollision" type="CollisionShape2D" parent="Obstacles"]
+position = Vector2(412, 720)
+shape = SubResource("RectangleShape2D_passage_wall")
+
+[node name="PassageRight" type="Polygon2D" parent="Obstacles"]
+position = Vector2(1388, 720)
+polygon = PackedVector2Array(-348, -90, 348, -90, 348, 90, -348, 90)
+color = Color(0.55, 0.32, 0.22, 1)
+
+[node name="PassageRightCollision" type="CollisionShape2D" parent="Obstacles"]
+position = Vector2(1388, 720)
+shape = SubResource("RectangleShape2D_passage_wall")
+
+[node name="LeftPillar" type="Polygon2D" parent="Obstacles"]
+position = Vector2(520, 1250)
+polygon = PackedVector2Array(-110, -110, 110, -110, 110, 110, -110, 110)
+color = Color(0.24, 0.42, 0.48, 1)
+
+[node name="LeftPillarCollision" type="CollisionShape2D" parent="Obstacles"]
+position = Vector2(520, 1250)
+shape = SubResource("RectangleShape2D_square_obstacle")
+
+[node name="RightPillar" type="Polygon2D" parent="Obstacles"]
+position = Vector2(1280, 1400)
+polygon = PackedVector2Array(-110, -110, 110, -110, 110, 110, -110, 110)
+color = Color(0.24, 0.42, 0.48, 1)
+
+[node name="RightPillarCollision" type="CollisionShape2D" parent="Obstacles"]
+position = Vector2(1280, 1400)
+shape = SubResource("RectangleShape2D_square_obstacle")
+
+[node name="WideBlock" type="Polygon2D" parent="Obstacles"]
+position = Vector2(900, 1800)
+polygon = PackedVector2Array(-250, -90, 250, -90, 250, 90, -250, 90)
+color = Color(0.42, 0.25, 0.46, 1)
+
+[node name="WideBlockCollision" type="CollisionShape2D" parent="Obstacles"]
+position = Vector2(900, 1800)
+shape = SubResource("RectangleShape2D_wide_obstacle")
+
+[node name="TallLeftBlock" type="Polygon2D" parent="Obstacles"]
+position = Vector2(300, 2450)
+polygon = PackedVector2Array(-150, -300, 150, -300, 150, 300, -150, 300)
+color = Color(0.35, 0.39, 0.22, 1)
+
+[node name="TallLeftBlockCollision" type="CollisionShape2D" parent="Obstacles"]
+position = Vector2(300, 2450)
+shape = SubResource("RectangleShape2D_tall_obstacle")
+
+[node name="TallRightBlock" type="Polygon2D" parent="Obstacles"]
+position = Vector2(1500, 2450)
+polygon = PackedVector2Array(-150, -300, 150, -300, 150, 300, -150, 300)
+color = Color(0.35, 0.39, 0.22, 1)
+
+[node name="TallRightBlockCollision" type="CollisionShape2D" parent="Obstacles"]
+position = Vector2(1500, 2450)
+shape = SubResource("RectangleShape2D_tall_obstacle")

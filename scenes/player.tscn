@@ -14,3 +14,13 @@ color = Color(0.2, 0.72, 1, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_player")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+enabled = true
+position_smoothing_enabled = true
+position_smoothing_speed = 6.0
+limit_left = 0
+limit_top = 0
+limit_right = 1800
+limit_bottom = 3000
+limit_smoothed = true

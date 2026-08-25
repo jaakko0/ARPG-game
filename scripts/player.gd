@@ -7,8 +7,11 @@ extends CharacterBody2D
 @export var enemy_group: StringName = &"enemy"
 
 @onready var health = $Health
+@onready var experience = $Experience
 @onready var health_label: Label = $HUD/HealthLabel
 @onready var gold_label: Label = $HUD/GoldLabel
+@onready var level_label: Label = $HUD/LevelLabel
+@onready var experience_label: Label = $HUD/ExperienceLabel
 @onready var fireball_skill = $FireballSkill
 
 var starting_position: Vector2
@@ -21,8 +24,11 @@ func _ready() -> void:
 	starting_position = global_position
 	health.health_changed.connect(_on_health_changed)
 	health.depleted.connect(_on_health_depleted)
+	experience.experience_changed.connect(_on_experience_changed)
+	experience.level_changed.connect(_on_level_changed)
 	update_health_display(health.current_health, health.max_health)
 	update_gold_display()
+	update_experience_display()
 
 
 func _physics_process(delta: float) -> void:
@@ -99,12 +105,24 @@ func add_gold(amount: int) -> void:
 	update_gold_display()
 
 
+func add_experience(amount: int) -> void:
+	experience.add_experience(amount)
+
+
 func _on_health_changed(current_health: int, max_health: int) -> void:
 	update_health_display(current_health, max_health)
 
 
 func _on_health_depleted() -> void:
 	call_deferred("respawn")
+
+
+func _on_experience_changed(_current_experience: int, _experience_required: int) -> void:
+	update_experience_display()
+
+
+func _on_level_changed(_new_level: int) -> void:
+	update_experience_display()
 
 
 func respawn() -> void:
@@ -119,3 +137,11 @@ func update_health_display(current_health: int, max_health: int) -> void:
 
 func update_gold_display() -> void:
 	gold_label.text = "Gold: %d" % gold
+
+
+func update_experience_display() -> void:
+	level_label.text = "Level: %d" % experience.current_level
+	experience_label.text = "XP: %d / %d" % [
+		experience.current_experience,
+		experience.experience_required,
+	]

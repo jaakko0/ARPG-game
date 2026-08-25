@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player_script"]
 [ext_resource type="Script" path="res://scripts/health.gd" id="2_health_script"]
 [ext_resource type="Script" path="res://scripts/fireball_skill.gd" id="3_fireball_skill_script"]
 [ext_resource type="PackedScene" path="res://scenes/fireball_projectile.tscn" id="4_fireball_projectile"]
+[ext_resource type="Script" path="res://scripts/experience.gd" id="5_experience_script"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(40, 48)
@@ -30,6 +31,9 @@ limit_smoothed = true
 
 [node name="Health" type="Node" parent="."]
 script = ExtResource("2_health_script")
+
+[node name="Experience" type="Node" parent="."]
+script = ExtResource("5_experience_script")
 
 [node name="FireballSkill" type="Node" parent="."]
 script = ExtResource("3_fireball_skill_script")
@@ -59,3 +63,25 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 28
 text = "Gold: 0"
+
+[node name="LevelLabel" type="Label" parent="HUD"]
+offset_left = 20.0
+offset_top = 112.0
+offset_right = 280.0
+offset_bottom = 156.0
+theme_override_colors/font_color = Color(0.55, 0.88, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 28
+text = "Level: 1"
+
+[node name="ExperienceLabel" type="Label" parent="HUD"]
+offset_left = 20.0
+offset_top = 158.0
+offset_right = 340.0
+offset_bottom = 202.0
+theme_override_colors/font_color = Color(0.72, 0.62, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 28
+text = "XP: 0 / 30"

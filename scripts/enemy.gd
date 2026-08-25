@@ -5,6 +5,7 @@ extends CharacterBody2D
 @export var target_group: StringName = &"player"
 @export var contact_damage: int = 10
 @export_range(0.1, 10.0, 0.1) var attack_interval: float = 1.0
+@export_range(0, 100000, 1) var experience_reward: int = 10
 
 @onready var health = $Health
 @onready var health_label: Label = $HealthLabel
@@ -12,6 +13,7 @@ extends CharacterBody2D
 
 var target: Node2D
 var attack_cooldown_remaining: float = 0.0
+var death_processed: bool = false
 
 
 func _ready() -> void:
@@ -73,9 +75,27 @@ func _on_health_changed(current_health: int, max_health: int) -> void:
 
 
 func _on_health_depleted() -> void:
+	if death_processed:
+		return
+
+	death_processed = true
 	loot_dropper.drop_loot(global_position)
+	award_experience()
 	set_physics_process(false)
 	queue_free()
+
+
+func award_experience() -> void:
+	if experience_reward <= 0:
+		return
+
+	var reward_target := target
+
+	if not is_instance_valid(reward_target):
+		reward_target = find_target()
+
+	if reward_target != null and reward_target.has_method("add_experience"):
+		reward_target.call("add_experience", experience_reward)
 
 
 func update_health_display(current_health: int, max_health: int) -> void:

@@ -8,11 +8,13 @@ extends CharacterBody2D
 
 @onready var health = $Health
 @onready var health_label: Label = $HUD/HealthLabel
+@onready var gold_label: Label = $HUD/GoldLabel
 @onready var fireball_skill = $FireballSkill
 
 var starting_position: Vector2
 var facing_direction: Vector2 = Vector2.DOWN
 var attack_cooldown_remaining: float = 0.0
+var gold: int = 0
 
 
 func _ready() -> void:
@@ -20,6 +22,7 @@ func _ready() -> void:
 	health.health_changed.connect(_on_health_changed)
 	health.depleted.connect(_on_health_depleted)
 	update_health_display(health.current_health, health.max_health)
+	update_gold_display()
 
 
 func _physics_process(delta: float) -> void:
@@ -88,6 +91,14 @@ func heal(amount: int) -> void:
 	health.heal(amount)
 
 
+func add_gold(amount: int) -> void:
+	if amount <= 0:
+		return
+
+	gold += amount
+	update_gold_display()
+
+
 func _on_health_changed(current_health: int, max_health: int) -> void:
 	update_health_display(current_health, max_health)
 
@@ -104,3 +115,7 @@ func respawn() -> void:
 
 func update_health_display(current_health: int, max_health: int) -> void:
 	health_label.text = "HP: %d / %d" % [current_health, max_health]
+
+
+func update_gold_display() -> void:
+	gold_label.text = "Gold: %d" % gold

@@ -8,6 +8,7 @@ extends CharacterBody2D
 
 @onready var health = $Health
 @onready var health_label: Label = $HealthLabel
+@onready var loot_dropper = $LootDropper
 
 var target: Node2D
 var attack_cooldown_remaining: float = 0.0
@@ -72,6 +73,7 @@ func _on_health_changed(current_health: int, max_health: int) -> void:
 
 
 func _on_health_depleted() -> void:
+	loot_dropper.drop_loot(global_position)
 	set_physics_process(false)
 	queue_free()
 

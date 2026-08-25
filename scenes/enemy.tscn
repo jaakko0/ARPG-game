@@ -1,7 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="1_enemy_script"]
 [ext_resource type="Script" path="res://scripts/health.gd" id="2_health_script"]
+[ext_resource type="Script" path="res://scripts/loot_dropper.gd" id="3_loot_dropper_script"]
+[ext_resource type="PackedScene" path="res://scenes/gold_pickup.tscn" id="4_gold_pickup"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_enemy"]
 radius = 18.0
@@ -20,6 +22,10 @@ shape = SubResource("CircleShape2D_enemy")
 [node name="Health" type="Node" parent="."]
 script = ExtResource("2_health_script")
 max_health = 30
+
+[node name="LootDropper" type="Node" parent="."]
+script = ExtResource("3_loot_dropper_script")
+pickup_scene = ExtResource("4_gold_pickup")
 
 [node name="HealthLabel" type="Label" parent="."]
 z_index = 10

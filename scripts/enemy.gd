@@ -6,12 +6,18 @@ extends CharacterBody2D
 @export var contact_damage: int = 10
 @export_range(0.1, 10.0, 0.1) var attack_interval: float = 1.0
 
+@onready var health = $Health
+@onready var health_label: Label = $HealthLabel
+
 var target: Node2D
 var attack_cooldown_remaining: float = 0.0
 
 
 func _ready() -> void:
 	target = find_target()
+	health.health_changed.connect(_on_health_changed)
+	health.depleted.connect(_on_health_depleted)
+	update_health_display(health.current_health, health.max_health)
 
 
 func _physics_process(delta: float) -> void:
@@ -55,6 +61,23 @@ func find_contact_damage_target() -> Node:
 			return collider
 
 	return null
+
+
+func take_damage(amount: int) -> void:
+	health.take_damage(amount)
+
+
+func _on_health_changed(current_health: int, max_health: int) -> void:
+	update_health_display(current_health, max_health)
+
+
+func _on_health_depleted() -> void:
+	set_physics_process(false)
+	queue_free()
+
+
+func update_health_display(current_health: int, max_health: int) -> void:
+	health_label.text = "HP: %d / %d" % [current_health, max_health]
 
 
 func find_target() -> Node2D:

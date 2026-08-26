@@ -8,24 +8,35 @@ extends CharacterBody2D
 
 @onready var health = $Health
 @onready var experience = $Experience
+@onready var attributes = $Attributes
 @onready var health_label: Label = $HUD/HealthLabel
 @onready var gold_label: Label = $HUD/GoldLabel
 @onready var level_label: Label = $HUD/LevelLabel
 @onready var experience_label: Label = $HUD/ExperienceLabel
 @onready var fireball_skill = $FireballSkill
+@onready var attribute_panel = $HUD/AttributePanel
 
 var starting_position: Vector2
 var facing_direction: Vector2 = Vector2.DOWN
 var attack_cooldown_remaining: float = 0.0
 var gold: int = 0
+var base_attack_damage: int
+var base_max_health: int
+var base_fireball_damage: int
 
 
 func _ready() -> void:
 	starting_position = global_position
+	base_attack_damage = attack_damage
+	base_max_health = health.max_health
+	base_fireball_damage = fireball_skill.damage
 	health.health_changed.connect(_on_health_changed)
 	health.depleted.connect(_on_health_depleted)
 	experience.experience_changed.connect(_on_experience_changed)
 	experience.level_changed.connect(_on_level_changed)
+	attributes.attribute_changed.connect(_on_attribute_changed)
+	attribute_panel.setup(attributes)
+	apply_attribute_effects()
 	update_health_display(health.current_health, health.max_health)
 	update_gold_display()
 	update_experience_display()
@@ -122,7 +133,12 @@ func _on_experience_changed(_current_experience: int, _experience_required: int)
 
 
 func _on_level_changed(_new_level: int) -> void:
+	attributes.grant_points(1)
 	update_experience_display()
+
+
+func _on_attribute_changed(_attribute_name: StringName, _new_value: int) -> void:
+	apply_attribute_effects()
 
 
 func respawn() -> void:
@@ -145,3 +161,11 @@ func update_experience_display() -> void:
 		experience.current_experience,
 		experience.experience_required,
 	]
+
+
+func apply_attribute_effects() -> void:
+	attack_damage = base_attack_damage + attributes.get_bonus(&"strength")
+	health.set_max_health(base_max_health + attributes.get_bonus(&"vitality") * 5)
+	fireball_skill.damage = (
+		base_fireball_damage + attributes.get_bonus(&"intelligence") * 2
+	)

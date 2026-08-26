@@ -9,10 +9,12 @@ extends CharacterBody2D
 @onready var health = $Health
 @onready var experience = $Experience
 @onready var attributes = $Attributes
+@onready var save_system = $SaveSystem
 @onready var health_label: Label = $HUD/HealthLabel
 @onready var gold_label: Label = $HUD/GoldLabel
 @onready var level_label: Label = $HUD/LevelLabel
 @onready var experience_label: Label = $HUD/ExperienceLabel
+@onready var save_status_label: Label = $HUD/SaveStatusLabel
 @onready var fireball_skill = $FireballSkill
 @onready var attribute_panel = $HUD/AttributePanel
 
@@ -23,6 +25,7 @@ var gold: int = 0
 var base_attack_damage: int
 var base_max_health: int
 var base_fireball_damage: int
+var save_status_remaining: float = 0.0
 
 
 func _ready() -> void:
@@ -44,6 +47,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	attack_cooldown_remaining = maxf(attack_cooldown_remaining - delta, 0.0)
+	update_save_status(delta)
 
 	var input_direction := get_movement_input()
 
@@ -56,6 +60,12 @@ func _physics_process(delta: float) -> void:
 
 	if Input.is_action_just_pressed("fireball"):
 		try_fireball()
+
+	if Input.is_action_just_pressed("save_game"):
+		save_progression()
+
+	if Input.is_action_just_pressed("load_game"):
+		load_progression()
 
 
 # Keeping input collection separate makes a virtual joystick easy to add later.
@@ -120,6 +130,90 @@ func add_experience(amount: int) -> void:
 	experience.add_experience(amount)
 
 
+func save_progression() -> bool:
+	var result: Dictionary = save_system.save_game(get_progression_save_data())
+	show_save_status(result.get("message", "Save Failed"))
+	return result.get("success", false)
+
+
+func load_progression() -> bool:
+	var result: Dictionary = save_system.load_game()
+
+	if not result.get("success", false):
+		show_save_status(result.get("message", "Load Failed"))
+		return false
+
+	var player_data: Dictionary = result.get("player_data", {})
+
+	if not apply_progression_save_data(player_data):
+		show_save_status("Load Failed: Invalid Progression")
+		return false
+
+	show_save_status(result.get("message", "Game Loaded"))
+	return true
+
+
+func get_progression_save_data() -> Dictionary:
+	return {
+		"level": experience.current_level,
+		"current_xp": experience.current_experience,
+		"gold": gold,
+		"attributes": {
+			"strength": attributes.strength,
+			"dexterity": attributes.dexterity,
+			"intelligence": attributes.intelligence,
+			"vitality": attributes.vitality,
+			"unspent_points": attributes.unspent_points,
+		},
+	}
+
+
+func apply_progression_save_data(player_data: Dictionary) -> bool:
+	var saved_level := int(player_data.get("level", 0))
+	var saved_experience := int(player_data.get("current_xp", -1))
+	var saved_experience_required: int = experience.get_experience_required_for_level(
+		saved_level
+	)
+	var attribute_data: Dictionary = player_data.get("attributes", {})
+	var saved_gold := int(player_data.get("gold", -1))
+	var saved_strength := int(attribute_data.get("strength", -1))
+	var saved_dexterity := int(attribute_data.get("dexterity", -1))
+	var saved_intelligence := int(attribute_data.get("intelligence", -1))
+	var saved_vitality := int(attribute_data.get("vitality", -1))
+	var saved_unspent_points := int(attribute_data.get("unspent_points", -1))
+
+	if (
+		saved_level < 1
+		or saved_experience < 0
+		or saved_experience >= saved_experience_required
+		or saved_gold < 0
+		or saved_strength < 0
+		or saved_dexterity < 0
+		or saved_intelligence < 0
+		or saved_vitality < 0
+		or saved_unspent_points < 0
+	):
+		return false
+
+	if not experience.restore_progress(saved_level, saved_experience):
+		return false
+
+	if not attributes.restore_values(
+		saved_strength,
+		saved_dexterity,
+		saved_intelligence,
+		saved_vitality,
+		saved_unspent_points
+	):
+		return false
+
+	gold = saved_gold
+	apply_attribute_effects()
+	update_gold_display()
+	update_experience_display()
+	return true
+
+
 func _on_health_changed(current_health: int, max_health: int) -> void:
 	update_health_display(current_health, max_health)
 
@@ -169,3 +263,18 @@ func apply_attribute_effects() -> void:
 	fireball_skill.damage = (
 		base_fireball_damage + attributes.get_bonus(&"intelligence") * 2
 	)
+
+
+func update_save_status(delta: float) -> void:
+	if save_status_remaining <= 0.0:
+		return
+
+	save_status_remaining = maxf(save_status_remaining - delta, 0.0)
+
+	if save_status_remaining == 0.0:
+		save_status_label.text = ""
+
+
+func show_save_status(message: String) -> void:
+	save_status_label.text = message
+	save_status_remaining = 3.0

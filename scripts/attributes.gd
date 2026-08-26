@@ -90,3 +90,33 @@ func get_base_value(attribute_name: StringName) -> int:
 
 func get_bonus(attribute_name: StringName) -> int:
 	return maxi(get_value(attribute_name) - get_base_value(attribute_name), 0)
+
+
+func restore_values(
+	saved_strength: int,
+	saved_dexterity: int,
+	saved_intelligence: int,
+	saved_vitality: int,
+	saved_unspent_points: int
+) -> bool:
+	if (
+		saved_strength < 0
+		or saved_dexterity < 0
+		or saved_intelligence < 0
+		or saved_vitality < 0
+		or saved_unspent_points < 0
+	):
+		return false
+
+	strength = saved_strength
+	dexterity = saved_dexterity
+	intelligence = saved_intelligence
+	vitality = saved_vitality
+	unspent_points = saved_unspent_points
+	attribute_changed.emit(STRENGTH, strength)
+	attribute_changed.emit(DEXTERITY, dexterity)
+	attribute_changed.emit(INTELLIGENCE, intelligence)
+	attribute_changed.emit(VITALITY, vitality)
+	points_changed.emit(unspent_points)
+	attributes_updated.emit()
+	return true

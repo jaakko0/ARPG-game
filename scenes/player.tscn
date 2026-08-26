@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player_script"]
 [ext_resource type="Script" path="res://scripts/health.gd" id="2_health_script"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/experience.gd" id="5_experience_script"]
 [ext_resource type="Script" path="res://scripts/attributes.gd" id="6_attributes_script"]
 [ext_resource type="PackedScene" path="res://scenes/attribute_panel.tscn" id="7_attribute_panel"]
+[ext_resource type="Script" path="res://scripts/save_system.gd" id="8_save_system_script"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(40, 48)
@@ -39,6 +40,9 @@ script = ExtResource("5_experience_script")
 
 [node name="Attributes" type="Node" parent="."]
 script = ExtResource("6_attributes_script")
+
+[node name="SaveSystem" type="Node" parent="."]
+script = ExtResource("8_save_system_script")
 
 [node name="FireballSkill" type="Node" parent="."]
 script = ExtResource("3_fireball_skill_script")
@@ -90,5 +94,15 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 28
 text = "XP: 0 / 30"
+
+[node name="SaveStatusLabel" type="Label" parent="HUD"]
+offset_left = 20.0
+offset_top = 204.0
+offset_right = 350.0
+offset_bottom = 248.0
+theme_override_colors/font_color = Color(0.55, 1, 0.65, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 24
 
 [node name="AttributePanel" parent="HUD" instance=ExtResource("7_attribute_panel")]

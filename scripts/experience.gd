@@ -35,3 +35,19 @@ func add_experience(amount: int) -> void:
 func get_experience_required_for_level(level: int) -> int:
 	var safe_level := maxi(level, 1)
 	return base_experience_required + (safe_level - 1) * experience_growth_per_level
+
+
+func restore_progress(saved_level: int, saved_experience: int) -> bool:
+	if saved_level < 1 or saved_experience < 0:
+		return false
+
+	var saved_experience_required := get_experience_required_for_level(saved_level)
+
+	if saved_experience >= saved_experience_required:
+		return false
+
+	current_level = saved_level
+	current_experience = saved_experience
+	experience_required = saved_experience_required
+	experience_changed.emit(current_experience, experience_required)
+	return true

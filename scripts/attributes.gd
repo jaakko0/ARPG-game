@@ -19,6 +19,10 @@ var dexterity: int
 var intelligence: int
 var vitality: int
 var unspent_points: int = 0
+var equipment_strength_bonus: int = 0
+var equipment_dexterity_bonus: int = 0
+var equipment_intelligence_bonus: int = 0
+var equipment_vitality_bonus: int = 0
 
 
 func _ready() -> void:
@@ -90,6 +94,54 @@ func get_base_value(attribute_name: StringName) -> int:
 
 func get_bonus(attribute_name: StringName) -> int:
 	return maxi(get_value(attribute_name) - get_base_value(attribute_name), 0)
+
+
+func set_equipment_bonuses(
+	strength_bonus: int,
+	dexterity_bonus: int,
+	intelligence_bonus: int,
+	vitality_bonus: int
+) -> void:
+	var new_strength_bonus := maxi(strength_bonus, 0)
+	var new_dexterity_bonus := maxi(dexterity_bonus, 0)
+	var new_intelligence_bonus := maxi(intelligence_bonus, 0)
+	var new_vitality_bonus := maxi(vitality_bonus, 0)
+
+	if (
+		new_strength_bonus == equipment_strength_bonus
+		and new_dexterity_bonus == equipment_dexterity_bonus
+		and new_intelligence_bonus == equipment_intelligence_bonus
+		and new_vitality_bonus == equipment_vitality_bonus
+	):
+		return
+
+	equipment_strength_bonus = new_strength_bonus
+	equipment_dexterity_bonus = new_dexterity_bonus
+	equipment_intelligence_bonus = new_intelligence_bonus
+	equipment_vitality_bonus = new_vitality_bonus
+	attributes_updated.emit()
+
+
+func get_equipment_bonus(attribute_name: StringName) -> int:
+	match attribute_name:
+		STRENGTH:
+			return equipment_strength_bonus
+		DEXTERITY:
+			return equipment_dexterity_bonus
+		INTELLIGENCE:
+			return equipment_intelligence_bonus
+		VITALITY:
+			return equipment_vitality_bonus
+		_:
+			return 0
+
+
+func get_effective_value(attribute_name: StringName) -> int:
+	return get_value(attribute_name) + get_equipment_bonus(attribute_name)
+
+
+func get_effective_bonus(attribute_name: StringName) -> int:
+	return maxi(get_effective_value(attribute_name) - get_base_value(attribute_name), 0)
 
 
 func restore_values(

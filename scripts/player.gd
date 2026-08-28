@@ -9,6 +9,7 @@ extends CharacterBody2D
 @onready var health = $Health
 @onready var experience = $Experience
 @onready var attributes = $Attributes
+@onready var equipment = $Equipment
 @onready var save_system = $SaveSystem
 @onready var health_label: Label = $HUD/HealthLabel
 @onready var gold_label: Label = $HUD/GoldLabel
@@ -17,6 +18,8 @@ extends CharacterBody2D
 @onready var save_status_label: Label = $HUD/SaveStatusLabel
 @onready var fireball_skill = $FireballSkill
 @onready var attribute_panel = $HUD/AttributePanel
+@onready var equipment_panel = $HUD/EquipmentPanel
+@onready var equipment_toggle_button: Button = $HUD/EquipmentToggleButton
 
 var starting_position: Vector2
 var facing_direction: Vector2 = Vector2.DOWN
@@ -27,6 +30,7 @@ var base_max_health: int
 var base_fireball_damage: int
 var save_status_remaining: float = 0.0
 var mobile_movement_input: Vector2 = Vector2.ZERO
+var is_loading_progression: bool = false
 
 
 func _ready() -> void:
@@ -39,8 +43,12 @@ func _ready() -> void:
 	experience.experience_changed.connect(_on_experience_changed)
 	experience.level_changed.connect(_on_level_changed)
 	attributes.attribute_changed.connect(_on_attribute_changed)
+	equipment.equipment_updated.connect(_on_equipment_updated)
 	attribute_panel.setup(attributes)
+	equipment_panel.setup(equipment, attributes, self)
+	update_equipment_attribute_bonuses()
 	apply_attribute_effects()
+	update_equipment_toggle_button()
 	update_health_display(health.current_health, health.max_health)
 	update_gold_display()
 	update_experience_display()
@@ -90,6 +98,11 @@ func _on_mobile_movement_changed(direction: Vector2) -> void:
 
 func _on_mobile_fireball_requested() -> void:
 	try_fireball()
+
+
+func _on_equipment_toggle_button_pressed() -> void:
+	equipment_panel.visible = not equipment_panel.visible
+	update_equipment_toggle_button()
 
 
 func try_autoattack() -> void:
@@ -183,6 +196,7 @@ func get_progression_save_data() -> Dictionary:
 			"vitality": attributes.vitality,
 			"unspent_points": attributes.unspent_points,
 		},
+		"equipment": equipment.get_equipped_item_ids(),
 	}
 
 
@@ -199,6 +213,7 @@ func apply_progression_save_data(player_data: Dictionary) -> bool:
 	var saved_intelligence := int(attribute_data.get("intelligence", -1))
 	var saved_vitality := int(attribute_data.get("vitality", -1))
 	var saved_unspent_points := int(attribute_data.get("unspent_points", -1))
+	var saved_equipment_data: Variant = player_data.get("equipment", {})
 
 	if (
 		saved_level < 1
@@ -210,10 +225,14 @@ func apply_progression_save_data(player_data: Dictionary) -> bool:
 		or saved_intelligence < 0
 		or saved_vitality < 0
 		or saved_unspent_points < 0
+		or typeof(saved_equipment_data) != TYPE_DICTIONARY
 	):
 		return false
 
+	is_loading_progression = true
+
 	if not experience.restore_progress(saved_level, saved_experience):
+		is_loading_progression = false
 		return false
 
 	if not attributes.restore_values(
@@ -223,12 +242,17 @@ func apply_progression_save_data(player_data: Dictionary) -> bool:
 		saved_vitality,
 		saved_unspent_points
 	):
+		is_loading_progression = false
 		return false
 
+	equipment.restore_equipment(saved_equipment_data)
 	gold = saved_gold
+	is_loading_progression = false
+	update_equipment_attribute_bonuses()
 	apply_attribute_effects()
 	update_gold_display()
 	update_experience_display()
+	equipment_panel.update_display()
 	return true
 
 
@@ -250,7 +274,20 @@ func _on_level_changed(_new_level: int) -> void:
 
 
 func _on_attribute_changed(_attribute_name: StringName, _new_value: int) -> void:
+	if is_loading_progression:
+		return
+
 	apply_attribute_effects()
+	equipment_panel.update_display()
+
+
+func _on_equipment_updated() -> void:
+	if is_loading_progression:
+		return
+
+	update_equipment_attribute_bonuses()
+	apply_attribute_effects()
+	equipment_panel.update_display()
 
 
 func respawn() -> void:
@@ -276,10 +313,35 @@ func update_experience_display() -> void:
 
 
 func apply_attribute_effects() -> void:
-	attack_damage = base_attack_damage + attributes.get_bonus(&"strength")
-	health.set_max_health(base_max_health + attributes.get_bonus(&"vitality") * 5)
+	attack_damage = base_attack_damage + attributes.get_effective_bonus(&"strength")
+	health.set_max_health(
+		base_max_health + attributes.get_effective_bonus(&"vitality") * 5
+	)
 	fireball_skill.damage = (
-		base_fireball_damage + attributes.get_bonus(&"intelligence") * 2
+		base_fireball_damage + attributes.get_effective_bonus(&"intelligence") * 2
+	)
+
+
+func update_equipment_attribute_bonuses() -> void:
+	attributes.set_equipment_bonuses(
+		equipment.get_total_attribute_bonus(&"strength"),
+		equipment.get_total_attribute_bonus(&"dexterity"),
+		equipment.get_total_attribute_bonus(&"intelligence"),
+		equipment.get_total_attribute_bonus(&"vitality")
+	)
+
+
+func get_derived_stats_debug_data() -> Dictionary:
+	return {
+		"autoattack_damage": attack_damage,
+		"fireball_damage": fireball_skill.damage,
+		"max_health": health.max_health,
+	}
+
+
+func update_equipment_toggle_button() -> void:
+	equipment_toggle_button.text = (
+		"Hide Equipment" if equipment_panel.visible else "Show Equipment"
 	)
 
 

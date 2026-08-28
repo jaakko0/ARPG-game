@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="EquipmentItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/equipment_item_data.gd" id="1_item_script"]
+
+[resource]
+script = ExtResource("1_item_script")
+item_id = &"training_sword"
+display_name = "Training Sword"
+slot = &"weapon"
+strength_bonus = 2

@@ -1,0 +1,197 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/equipment_panel.gd" id="1_equipment_panel_script"]
+
+[node name="EquipmentPanel" type="PanelContainer"]
+offset_left = 20.0
+offset_top = 370.0
+offset_right = 700.0
+offset_bottom = 900.0
+script = ExtResource("1_equipment_panel_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="TitleLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Equipment Prototype"
+horizontal_alignment = 1
+
+[node name="EffectiveAttributesLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Effective  STR 5   DEX 5   INT 5   VIT 5"
+horizontal_alignment = 1
+
+[node name="DerivedStatsLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Attack 10   Fireball 20   Max HP 100"
+horizontal_alignment = 1
+
+[node name="SeparatorTop" type="HSeparator" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Slots" type="GridContainer" parent="Margin/VBox"]
+layout_mode = 2
+columns = 4
+
+[node name="WeaponName" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Weapon:"
+
+[node name="WeaponValue" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "Empty"
+clip_text = true
+
+[node name="HeadName" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Head:"
+
+[node name="HeadValue" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "Empty"
+clip_text = true
+
+[node name="ChestName" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Chest:"
+
+[node name="ChestValue" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "Empty"
+clip_text = true
+
+[node name="HandsName" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Hands:"
+
+[node name="HandsValue" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "Empty"
+clip_text = true
+
+[node name="FeetName" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Feet:"
+
+[node name="FeetValue" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "Empty"
+clip_text = true
+
+[node name="RingName" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Ring:"
+
+[node name="RingValue" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "Empty"
+clip_text = true
+
+[node name="AmuletName" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Amulet:"
+
+[node name="AmuletValue" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "Empty"
+clip_text = true
+
+[node name="EmptyName" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+
+[node name="EmptyValue" type="Label" parent="Margin/VBox/Slots"]
+layout_mode = 2
+
+[node name="SeparatorBottom" type="HSeparator" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="WeaponButtons" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="TrainingSwordButton" type="Button" parent="Margin/VBox/WeaponButtons"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Equip Sword (+2 STR)"
+
+[node name="PracticeBladeButton" type="Button" parent="Margin/VBox/WeaponButtons"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Replace: Blade (+1 DEX)"
+
+[node name="UnequipWeaponButton" type="Button" parent="Margin/VBox/WeaponButtons"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Unequip Weapon"
+
+[node name="HeadButtons" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="ApprenticeHoodButton" type="Button" parent="Margin/VBox/HeadButtons"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Equip Hood (+2 INT)"
+
+[node name="UnequipHeadButton" type="Button" parent="Margin/VBox/HeadButtons"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Unequip Head"
+
+[node name="ChestButtons" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="SturdyVestButton" type="Button" parent="Margin/VBox/ChestButtons"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Equip Vest (+2 VIT)"
+
+[node name="UnequipChestButton" type="Button" parent="Margin/VBox/ChestButtons"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Unequip Chest"

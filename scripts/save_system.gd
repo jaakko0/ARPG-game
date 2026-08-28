@@ -110,6 +110,24 @@ func _is_valid_player_data(player_data: Variant) -> bool:
 		if int(attribute_data[key]) < 0:
 			return false
 
+	if player_data.has("equipment"):
+		var equipment_data: Variant = player_data["equipment"]
+
+		if typeof(equipment_data) != TYPE_DICTIONARY:
+			return false
+
+		for slot_key in equipment_data:
+			if (
+				typeof(slot_key) != TYPE_STRING
+				and typeof(slot_key) != TYPE_STRING_NAME
+			):
+				return false
+
+			var item_id: Variant = equipment_data[slot_key]
+
+			if typeof(item_id) != TYPE_STRING and typeof(item_id) != TYPE_STRING_NAME:
+				return false
+
 	return true
 
 

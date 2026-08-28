@@ -128,6 +128,16 @@ func _is_valid_player_data(player_data: Variant) -> bool:
 			if typeof(item_id) != TYPE_STRING and typeof(item_id) != TYPE_STRING_NAME:
 				return false
 
+	if player_data.has("inventory"):
+		var inventory_data: Variant = player_data["inventory"]
+
+		if typeof(inventory_data) != TYPE_ARRAY:
+			return false
+
+		for item_id in inventory_data:
+			if typeof(item_id) != TYPE_STRING and typeof(item_id) != TYPE_STRING_NAME:
+				return false
+
 	return true
 
 

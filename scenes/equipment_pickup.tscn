@@ -1,0 +1,35 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/equipment_pickup.gd" id="1_equipment_pickup_script"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_equipment_pickup"]
+radius = 19.0
+
+[node name="EquipmentPickup" type="Area2D" groups=["equipment_pickup"]]
+collision_layer = 0
+collision_mask = 1
+script = ExtResource("1_equipment_pickup_script")
+
+[node name="Placeholder" type="Polygon2D" parent="."]
+polygon = PackedVector2Array(0, -18, 18, 0, 0, 18, -18, 0)
+color = Color(0.3, 0.92, 0.78, 1)
+
+[node name="Inner" type="Polygon2D" parent="."]
+polygon = PackedVector2Array(0, -9, 9, 0, 0, 9, -9, 0)
+color = Color(0.08, 0.28, 0.24, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_equipment_pickup")
+
+[node name="ItemLabel" type="Label" parent="."]
+z_index = 10
+offset_left = -90.0
+offset_top = -52.0
+offset_right = 90.0
+offset_bottom = -26.0
+theme_override_colors/font_color = Color(0.72, 1, 0.9, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 16
+text = "Equipment"
+horizontal_alignment = 1

@@ -1,5 +1,7 @@
 extends CharacterBody2D
 
+const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
+
 @export var move_speed: float = 240.0
 @export var attack_damage: int = 10
 @export var attack_range: float = 110.0
@@ -10,6 +12,7 @@ extends CharacterBody2D
 @onready var experience = $Experience
 @onready var attributes = $Attributes
 @onready var equipment = $Equipment
+@onready var inventory = $Inventory
 @onready var save_system = $SaveSystem
 @onready var health_label: Label = $HUD/HealthLabel
 @onready var gold_label: Label = $HUD/GoldLabel
@@ -20,6 +23,8 @@ extends CharacterBody2D
 @onready var attribute_panel = $HUD/AttributePanel
 @onready var equipment_panel = $HUD/EquipmentPanel
 @onready var equipment_toggle_button: Button = $HUD/EquipmentToggleButton
+@onready var inventory_panel = $HUD/InventoryPanel
+@onready var inventory_toggle_button: Button = $HUD/InventoryToggleButton
 
 var starting_position: Vector2
 var facing_direction: Vector2 = Vector2.DOWN
@@ -46,9 +51,12 @@ func _ready() -> void:
 	equipment.equipment_updated.connect(_on_equipment_updated)
 	attribute_panel.setup(attributes)
 	equipment_panel.setup(equipment, attributes, self)
+	inventory_panel.setup(inventory, equipment, attributes, self)
+	inventory_panel.close_requested.connect(_on_inventory_panel_close_requested)
 	update_equipment_attribute_bonuses()
 	apply_attribute_effects()
 	update_equipment_toggle_button()
+	update_inventory_toggle_button()
 	update_health_display(health.current_health, health.max_health)
 	update_gold_display()
 	update_experience_display()
@@ -101,8 +109,19 @@ func _on_mobile_fireball_requested() -> void:
 
 
 func _on_equipment_toggle_button_pressed() -> void:
+	if inventory_panel.visible:
+		set_inventory_open(false)
+
 	equipment_panel.visible = not equipment_panel.visible
 	update_equipment_toggle_button()
+
+
+func _on_inventory_toggle_button_pressed() -> void:
+	set_inventory_open(not inventory_panel.visible)
+
+
+func _on_inventory_panel_close_requested() -> void:
+	set_inventory_open(false)
 
 
 func try_autoattack() -> void:
@@ -161,6 +180,69 @@ func add_experience(amount: int) -> void:
 	experience.add_experience(amount)
 
 
+func collect_equipment_item(item_data: EquipmentItemData) -> bool:
+	if item_data == null or equipment.get_item_by_id(item_data.item_id) == null:
+		return false
+
+	if not inventory.add_item(item_data.item_id):
+		show_save_status("Inventory Full")
+		return false
+
+	show_save_status("Picked up %s" % item_data.display_name)
+	return true
+
+
+func add_debug_inventory_item(item_id: StringName) -> bool:
+	var item: EquipmentItemData = equipment.get_item_by_id(item_id)
+	return collect_equipment_item(item)
+
+
+func equip_inventory_item(item_index: int) -> bool:
+	var item_id: StringName = inventory.get_item_id_at(item_index)
+	var item: EquipmentItemData = equipment.get_item_by_id(item_id)
+
+	if item == null:
+		return false
+
+	var previous_item: EquipmentItemData = equipment.get_equipped_item(item.slot)
+	var removed_item_id: StringName = inventory.remove_item_at(item_index)
+
+	if removed_item_id.is_empty() or not equipment.equip(item):
+		if not removed_item_id.is_empty():
+			inventory.add_item(removed_item_id)
+		return false
+
+	if previous_item != null and not inventory.add_item(previous_item.item_id):
+		equipment.equip(previous_item)
+		inventory.add_item(removed_item_id)
+		show_save_status("Inventory Full")
+		return false
+
+	show_save_status("Equipped %s" % item.display_name)
+	return true
+
+
+func unequip_equipment_to_inventory(slot: StringName) -> bool:
+	var equipped_item: EquipmentItemData = equipment.get_equipped_item(slot)
+
+	if equipped_item == null:
+		return false
+
+	if inventory.is_full():
+		show_save_status("Inventory Full")
+		return false
+
+	var removed_item: EquipmentItemData = equipment.unequip(slot)
+
+	if removed_item == null or not inventory.add_item(removed_item.item_id):
+		if removed_item != null:
+			equipment.equip(removed_item)
+		return false
+
+	show_save_status("Unequipped %s" % removed_item.display_name)
+	return true
+
+
 func save_progression() -> bool:
 	var result: Dictionary = save_system.save_game(get_progression_save_data())
 	show_save_status(result.get("message", "Save Failed"))
@@ -197,6 +279,7 @@ func get_progression_save_data() -> Dictionary:
 			"unspent_points": attributes.unspent_points,
 		},
 		"equipment": equipment.get_equipped_item_ids(),
+		"inventory": inventory.get_item_id_strings(),
 	}
 
 
@@ -214,6 +297,7 @@ func apply_progression_save_data(player_data: Dictionary) -> bool:
 	var saved_vitality := int(attribute_data.get("vitality", -1))
 	var saved_unspent_points := int(attribute_data.get("unspent_points", -1))
 	var saved_equipment_data: Variant = player_data.get("equipment", {})
+	var saved_inventory_data: Variant = player_data.get("inventory", [])
 
 	if (
 		saved_level < 1
@@ -226,8 +310,23 @@ func apply_progression_save_data(player_data: Dictionary) -> bool:
 		or saved_vitality < 0
 		or saved_unspent_points < 0
 		or typeof(saved_equipment_data) != TYPE_DICTIONARY
+		or typeof(saved_inventory_data) != TYPE_ARRAY
 	):
 		return false
+
+	var restored_inventory_ids: Array[StringName] = []
+
+	for saved_item_id_value in saved_inventory_data:
+		if (
+			typeof(saved_item_id_value) != TYPE_STRING
+			and typeof(saved_item_id_value) != TYPE_STRING_NAME
+		):
+			return false
+
+		var saved_item_id := StringName(saved_item_id_value)
+
+		if equipment.get_item_by_id(saved_item_id) != null:
+			restored_inventory_ids.append(saved_item_id)
 
 	is_loading_progression = true
 
@@ -246,6 +345,7 @@ func apply_progression_save_data(player_data: Dictionary) -> bool:
 		return false
 
 	equipment.restore_equipment(saved_equipment_data)
+	inventory.restore_item_ids(restored_inventory_ids)
 	gold = saved_gold
 	is_loading_progression = false
 	update_equipment_attribute_bonuses()
@@ -253,6 +353,7 @@ func apply_progression_save_data(player_data: Dictionary) -> bool:
 	update_gold_display()
 	update_experience_display()
 	equipment_panel.update_display()
+	inventory_panel.update_display()
 	return true
 
 
@@ -343,6 +444,29 @@ func update_equipment_toggle_button() -> void:
 	equipment_toggle_button.text = (
 		"Hide Equipment" if equipment_panel.visible else "Show Equipment"
 	)
+
+
+func set_inventory_open(is_open: bool) -> void:
+	if is_open:
+		equipment_panel.visible = false
+		update_equipment_toggle_button()
+		mobile_movement_input = Vector2.ZERO
+		velocity = Vector2.ZERO
+
+	inventory_panel.visible = is_open
+	update_inventory_toggle_button()
+	get_tree().paused = is_open
+
+
+func update_inventory_toggle_button() -> void:
+	inventory_toggle_button.text = (
+		"Close Inventory" if inventory_panel.visible else "Open Inventory"
+	)
+
+
+func _exit_tree() -> void:
+	if inventory_panel != null and inventory_panel.visible:
+		get_tree().paused = false
 
 
 func update_save_status(delta: float) -> void:

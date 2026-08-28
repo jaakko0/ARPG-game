@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="1_enemy_script"]
 [ext_resource type="Script" path="res://scripts/health.gd" id="2_health_script"]
@@ -6,6 +6,11 @@
 [ext_resource type="PackedScene" path="res://scenes/gold_pickup.tscn" id="4_gold_pickup"]
 [ext_resource type="Script" path="res://scripts/combat_feedback.gd" id="5_combat_feedback_script"]
 [ext_resource type="PackedScene" path="res://scenes/floating_damage_number.tscn" id="6_damage_number"]
+[ext_resource type="PackedScene" path="res://scenes/equipment_pickup.tscn" id="7_equipment_pickup"]
+[ext_resource type="Resource" path="res://data/equipment/training_sword.tres" id="8_training_sword"]
+[ext_resource type="Resource" path="res://data/equipment/practice_blade.tres" id="9_practice_blade"]
+[ext_resource type="Resource" path="res://data/equipment/apprentice_hood.tres" id="10_apprentice_hood"]
+[ext_resource type="Resource" path="res://data/equipment/sturdy_vest.tres" id="11_sturdy_vest"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_enemy"]
 radius = 18.0
@@ -28,6 +33,9 @@ max_health = 30
 [node name="LootDropper" type="Node" parent="."]
 script = ExtResource("3_loot_dropper_script")
 pickup_scene = ExtResource("4_gold_pickup")
+equipment_pickup_scene = ExtResource("7_equipment_pickup")
+equipment_drop_chance = 0.5
+equipment_items = [ExtResource("8_training_sword"), ExtResource("9_practice_blade"), ExtResource("10_apprentice_hood"), ExtResource("11_sturdy_vest")]
 
 [node name="CombatFeedback" type="Node" parent="."]
 script = ExtResource("5_combat_feedback_script")

@@ -146,14 +146,14 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
-text = "Equip Sword (+2 STR)"
+text = "Add Sword (+2 STR)"
 
 [node name="PracticeBladeButton" type="Button" parent="Margin/VBox/WeaponButtons"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
-text = "Replace: Blade (+1 DEX)"
+text = "Add Blade (+1 DEX)"
 
 [node name="UnequipWeaponButton" type="Button" parent="Margin/VBox/WeaponButtons"]
 custom_minimum_size = Vector2(0, 44)
@@ -170,7 +170,7 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
-text = "Equip Hood (+2 INT)"
+text = "Add Hood (+2 INT)"
 
 [node name="UnequipHeadButton" type="Button" parent="Margin/VBox/HeadButtons"]
 custom_minimum_size = Vector2(0, 44)
@@ -187,7 +187,7 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
-text = "Equip Vest (+2 VIT)"
+text = "Add Vest (+2 VIT)"
 
 [node name="UnequipChestButton" type="Button" parent="Margin/VBox/ChestButtons"]
 custom_minimum_size = Vector2(0, 44)

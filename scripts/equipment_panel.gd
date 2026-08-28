@@ -64,13 +64,13 @@ func setup(
 
 
 func _equip_item(item_id: StringName) -> void:
-	if equipment != null:
-		equipment.call("equip_by_id", item_id)
+	if derived_stats_provider != null:
+		derived_stats_provider.call("add_debug_inventory_item", item_id)
 
 
 func _unequip_slot(slot: StringName) -> void:
-	if equipment != null:
-		equipment.call("unequip", slot)
+	if derived_stats_provider != null:
+		derived_stats_provider.call("unequip_equipment_to_inventory", slot)
 
 
 func update_display() -> void:

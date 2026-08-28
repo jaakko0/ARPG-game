@@ -1,0 +1,48 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/mobile_controls.gd" id="1_mobile_controls_script"]
+[ext_resource type="Script" path="res://scripts/virtual_joystick.gd" id="2_virtual_joystick_script"]
+
+[node name="MobileControls" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_mobile_controls_script")
+
+[node name="VirtualJoystick" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 32.0
+offset_top = -252.0
+offset_right = 252.0
+offset_bottom = -32.0
+grow_vertical = 0
+script = ExtResource("2_virtual_joystick_script")
+
+[node name="FireballButton" type="Button" parent="."]
+custom_minimum_size = Vector2(180, 180)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -220.0
+offset_top = -220.0
+offset_right = -40.0
+offset_bottom = -40.0
+grow_horizontal = 0
+grow_vertical = 0
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 0.92, 0.82, 1)
+theme_override_colors/font_outline_color = Color(0.2, 0.03, 0.01, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 28
+text = "Fireball"
+modulate = Color(1, 0.48, 0.25, 0.9)

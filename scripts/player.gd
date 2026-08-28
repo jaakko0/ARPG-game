@@ -26,6 +26,7 @@ var base_attack_damage: int
 var base_max_health: int
 var base_fireball_damage: int
 var save_status_remaining: float = 0.0
+var mobile_movement_input: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -68,13 +69,27 @@ func _physics_process(delta: float) -> void:
 		load_progression()
 
 
-# Keeping input collection separate makes a virtual joystick easy to add later.
+# Keyboard and touch input meet here before the existing movement logic uses them.
 func get_movement_input() -> Vector2:
-	return Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var keyboard_input := Input.get_vector(
+		"move_left",
+		"move_right",
+		"move_up",
+		"move_down"
+	)
+	return (keyboard_input + mobile_movement_input).limit_length(1.0)
 
 
 func try_fireball() -> bool:
 	return fireball_skill.try_activate(global_position, facing_direction)
+
+
+func _on_mobile_movement_changed(direction: Vector2) -> void:
+	mobile_movement_input = direction.limit_length(1.0)
+
+
+func _on_mobile_fireball_requested() -> void:
+	try_fireball()
 
 
 func try_autoattack() -> void:

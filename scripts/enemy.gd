@@ -48,7 +48,13 @@ func try_contact_attack() -> void:
 	var damage_target := find_contact_damage_target()
 
 	if damage_target != null:
-		damage_target.call("take_damage", contact_damage)
+		var target_body := damage_target as Node2D
+		var hit_direction := Vector2.ZERO
+
+		if target_body != null:
+			hit_direction = (target_body.global_position - global_position).normalized()
+
+		damage_target.call("take_damage", contact_damage, hit_direction)
 		attack_cooldown_remaining = attack_interval
 
 
@@ -66,8 +72,8 @@ func find_contact_damage_target() -> Node:
 	return null
 
 
-func take_damage(amount: int) -> void:
-	health.take_damage(amount)
+func take_damage(amount: int, hit_direction: Vector2 = Vector2.ZERO) -> void:
+	health.take_damage(amount, hit_direction)
 
 
 func _on_health_changed(current_health: int, max_health: int) -> void:

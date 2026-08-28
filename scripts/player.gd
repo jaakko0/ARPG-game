@@ -99,7 +99,10 @@ func try_autoattack() -> void:
 	var attack_target := find_nearest_enemy_in_range()
 
 	if attack_target != null:
-		attack_target.call("take_damage", attack_damage)
+		var hit_direction := (
+			attack_target.global_position - global_position
+		).normalized()
+		attack_target.call("take_damage", attack_damage, hit_direction)
 		attack_cooldown_remaining = attack_interval
 
 
@@ -125,8 +128,8 @@ func find_nearest_enemy_in_range() -> Node2D:
 	return nearest_enemy
 
 
-func take_damage(amount: int) -> void:
-	health.take_damage(amount)
+func take_damage(amount: int, hit_direction: Vector2 = Vector2.ZERO) -> void:
+	health.take_damage(amount, hit_direction)
 
 
 func heal(amount: int) -> void:

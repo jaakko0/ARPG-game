@@ -1,9 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="1_enemy_script"]
 [ext_resource type="Script" path="res://scripts/health.gd" id="2_health_script"]
 [ext_resource type="Script" path="res://scripts/loot_dropper.gd" id="3_loot_dropper_script"]
 [ext_resource type="PackedScene" path="res://scenes/gold_pickup.tscn" id="4_gold_pickup"]
+[ext_resource type="Script" path="res://scripts/combat_feedback.gd" id="5_combat_feedback_script"]
+[ext_resource type="PackedScene" path="res://scenes/floating_damage_number.tscn" id="6_damage_number"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_enemy"]
 radius = 18.0
@@ -27,6 +29,10 @@ max_health = 30
 script = ExtResource("3_loot_dropper_script")
 pickup_scene = ExtResource("4_gold_pickup")
 
+[node name="CombatFeedback" type="Node" parent="."]
+script = ExtResource("5_combat_feedback_script")
+damage_number_scene = ExtResource("6_damage_number")
+
 [node name="HealthLabel" type="Label" parent="."]
 z_index = 10
 offset_left = -50.0
@@ -39,3 +45,5 @@ theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 16
 text = "HP: 30 / 30"
 horizontal_alignment = 1
+
+[connection signal="damage_taken" from="Health" to="CombatFeedback" method="show_damage"]

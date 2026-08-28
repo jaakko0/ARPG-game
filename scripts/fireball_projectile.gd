@@ -41,6 +41,6 @@ func _physics_process(delta: float) -> void:
 		and collider.is_in_group(target_group)
 		and collider.has_method("take_damage")
 	):
-		collider.call("take_damage", damage)
+		collider.call("take_damage", damage, direction)
 
 	queue_free()

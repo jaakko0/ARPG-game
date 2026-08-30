@@ -10,6 +10,7 @@ extends CharacterBody2D
 @onready var health = $Health
 @onready var health_label: Label = $HealthLabel
 @onready var loot_dropper = $LootDropper
+@onready var heavy_attack = get_node_or_null("HeavyAttack")
 
 var target: Node2D
 var attack_cooldown_remaining: float = 0.0
@@ -30,15 +31,22 @@ func _physics_process(delta: float) -> void:
 		target = find_target()
 
 	velocity = Vector2.ZERO
+	var movement_locked := false
 
-	if target != null:
+	if heavy_attack != null:
+		heavy_attack.call("update_attack", delta, target)
+		movement_locked = heavy_attack.call("is_movement_locked")
+
+	if target != null and not movement_locked:
 		var offset_to_target := target.global_position - global_position
 
 		if offset_to_target.length() <= detection_radius:
 			velocity = offset_to_target.normalized() * move_speed
 
 	move_and_slide()
-	try_contact_attack()
+
+	if not movement_locked:
+		try_contact_attack()
 
 
 func try_contact_attack() -> void:

@@ -12,23 +12,28 @@
 [ext_resource type="Resource" path="res://data/equipment/apprentice_hood.tres" id="10_apprentice_hood"]
 [ext_resource type="Resource" path="res://data/equipment/sturdy_vest.tres" id="11_sturdy_vest"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_enemy"]
-radius = 18.0
+[sub_resource type="CircleShape2D" id="CircleShape2D_fast_enemy"]
+radius = 15.0
 
-[node name="Enemy" type="CharacterBody2D" groups=["enemy"]]
+[node name="FastEnemy" type="CharacterBody2D" groups=["enemy"]]
 motion_mode = 1
 script = ExtResource("1_enemy_script")
+move_speed = 210.0
+detection_radius = 550.0
+contact_damage = 7
+attack_interval = 0.8
+experience_reward = 8
 
 [node name="Placeholder" type="Polygon2D" parent="."]
-polygon = PackedVector2Array(0, -22, 22, 0, 0, 22, -22, 0)
-color = Color(0.9, 0.24, 0.2, 1)
+polygon = PackedVector2Array(0, -20, 18, 16, -18, 16)
+color = Color(0.9, 0.86, 0.16, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("CircleShape2D_enemy")
+shape = SubResource("CircleShape2D_fast_enemy")
 
 [node name="Health" type="Node" parent="."]
 script = ExtResource("2_health_script")
-max_health = 30
+max_health = 18
 
 [node name="LootDropper" type="Node" parent="."]
 script = ExtResource("3_loot_dropper_script")
@@ -44,27 +49,27 @@ damage_number_scene = ExtResource("6_damage_number")
 [node name="HealthLabel" type="Label" parent="."]
 z_index = 10
 offset_left = -50.0
-offset_top = -54.0
+offset_top = -52.0
 offset_right = 50.0
 offset_bottom = -28.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 16
-text = "HP: 30 / 30"
+text = "HP: 18 / 18"
 horizontal_alignment = 1
 
 [node name="TypeLabel" type="Label" parent="."]
 z_index = 10
 offset_left = -60.0
-offset_top = -82.0
+offset_top = -80.0
 offset_right = 60.0
-offset_bottom = -58.0
-theme_override_colors/font_color = Color(1, 0.68, 0.62, 1)
+offset_bottom = -56.0
+theme_override_colors/font_color = Color(1, 0.96, 0.3, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 15
-text = "BASIC"
+text = "FAST"
 horizontal_alignment = 1
 
 [connection signal="damage_taken" from="Health" to="CombatFeedback" method="show_damage"]

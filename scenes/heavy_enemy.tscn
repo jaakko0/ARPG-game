@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="1_enemy_script"]
 [ext_resource type="Script" path="res://scripts/health.gd" id="2_health_script"]
@@ -11,24 +11,30 @@
 [ext_resource type="Resource" path="res://data/equipment/practice_blade.tres" id="9_practice_blade"]
 [ext_resource type="Resource" path="res://data/equipment/apprentice_hood.tres" id="10_apprentice_hood"]
 [ext_resource type="Resource" path="res://data/equipment/sturdy_vest.tres" id="11_sturdy_vest"]
+[ext_resource type="Script" path="res://scripts/heavy_attack.gd" id="12_heavy_attack_script"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_enemy"]
-radius = 18.0
+[sub_resource type="CircleShape2D" id="CircleShape2D_heavy_enemy"]
+radius = 28.0
 
-[node name="Enemy" type="CharacterBody2D" groups=["enemy"]]
+[node name="HeavyEnemy" type="CharacterBody2D" groups=["enemy"]]
 motion_mode = 1
 script = ExtResource("1_enemy_script")
+move_speed = 70.0
+detection_radius = 550.0
+contact_damage = 8
+attack_interval = 1.2
+experience_reward = 20
 
 [node name="Placeholder" type="Polygon2D" parent="."]
-polygon = PackedVector2Array(0, -22, 22, 0, 0, 22, -22, 0)
-color = Color(0.9, 0.24, 0.2, 1)
+polygon = PackedVector2Array(-30, -30, 30, -30, 30, 30, -30, 30)
+color = Color(0.55, 0.24, 0.82, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("CircleShape2D_enemy")
+shape = SubResource("CircleShape2D_heavy_enemy")
 
 [node name="Health" type="Node" parent="."]
 script = ExtResource("2_health_script")
-max_health = 30
+max_health = 80
 
 [node name="LootDropper" type="Node" parent="."]
 script = ExtResource("3_loot_dropper_script")
@@ -37,34 +43,56 @@ equipment_pickup_scene = ExtResource("7_equipment_pickup")
 equipment_drop_chance = 0.5
 equipment_items = [ExtResource("8_training_sword"), ExtResource("9_practice_blade"), ExtResource("10_apprentice_hood"), ExtResource("11_sturdy_vest")]
 
+[node name="HeavyAttack" type="Node2D" parent="."]
+z_index = -1
+script = ExtResource("12_heavy_attack_script")
+attack_range = 165.0
+damage = 30
+windup_duration = 0.9
+recovery_duration = 0.6
+cooldown_duration = 2.5
+
+[node name="WarningLabel" type="Label" parent="HeavyAttack"]
+z_index = 2
+offset_left = -82.0
+offset_top = -18.0
+offset_right = 82.0
+offset_bottom = 18.0
+theme_override_colors/font_color = Color(1, 0.92, 0.45, 1)
+theme_override_colors/font_outline_color = Color(0.25, 0.01, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 20
+text = "MOVE!"
+horizontal_alignment = 1
+
 [node name="CombatFeedback" type="Node" parent="."]
 script = ExtResource("5_combat_feedback_script")
 damage_number_scene = ExtResource("6_damage_number")
 
 [node name="HealthLabel" type="Label" parent="."]
 z_index = 10
-offset_left = -50.0
-offset_top = -54.0
-offset_right = 50.0
-offset_bottom = -28.0
+offset_left = -60.0
+offset_top = -68.0
+offset_right = 60.0
+offset_bottom = -42.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 16
-text = "HP: 30 / 30"
+text = "HP: 80 / 80"
 horizontal_alignment = 1
 
 [node name="TypeLabel" type="Label" parent="."]
 z_index = 10
-offset_left = -60.0
-offset_top = -82.0
-offset_right = 60.0
-offset_bottom = -58.0
-theme_override_colors/font_color = Color(1, 0.68, 0.62, 1)
+offset_left = -70.0
+offset_top = -98.0
+offset_right = 70.0
+offset_bottom = -72.0
+theme_override_colors/font_color = Color(0.84, 0.62, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 15
-text = "BASIC"
+theme_override_font_sizes/font_size = 16
+text = "HEAVY"
 horizontal_alignment = 1
 
 [connection signal="damage_taken" from="Health" to="CombatFeedback" method="show_damage"]

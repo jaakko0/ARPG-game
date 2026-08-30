@@ -11,6 +11,8 @@ enum AttackState {
 	COOLDOWN,
 }
 
+@export var ability_name: String = "Area Attack"
+@export var warning_text: String = "MOVE!"
 @export_range(40.0, 500.0, 5.0) var attack_range: float = 165.0
 @export_range(1, 1000, 1) var damage: int = 30
 @export_range(0.1, 5.0, 0.05) var windup_duration: float = 0.9
@@ -19,12 +21,17 @@ enum AttackState {
 @export var telegraph_fill_color: Color = Color(1.0, 0.2, 0.08, 0.24)
 @export var telegraph_outline_color: Color = Color(1.0, 0.72, 0.15, 0.95)
 
+@onready var warning_label := get_node_or_null("WarningLabel") as Label
+
 var state: AttackState = AttackState.READY
 var state_time_remaining: float = 0.0
 
 
 func _ready() -> void:
 	visible = false
+
+	if warning_label != null:
+		warning_label.text = warning_text
 
 
 func update_attack(delta: float, target: Node2D) -> void:

@@ -3,6 +3,7 @@ extends CharacterBody2D
 @export var move_speed: float = 120.0
 @export var detection_radius: float = 450.0
 @export var target_group: StringName = &"player"
+@export var enemy_rank: StringName = &"normal"
 @export var contact_damage: int = 10
 @export_range(0.1, 10.0, 0.1) var attack_interval: float = 1.0
 @export_range(0, 100000, 1) var experience_reward: int = 10
@@ -10,7 +11,7 @@ extends CharacterBody2D
 @onready var health = $Health
 @onready var health_label: Label = $HealthLabel
 @onready var loot_dropper = $LootDropper
-@onready var heavy_attack = get_node_or_null("HeavyAttack")
+@onready var area_attack = get_node_or_null("AreaAttack")
 
 var target: Node2D
 var attack_cooldown_remaining: float = 0.0
@@ -33,9 +34,9 @@ func _physics_process(delta: float) -> void:
 	velocity = Vector2.ZERO
 	var movement_locked := false
 
-	if heavy_attack != null:
-		heavy_attack.call("update_attack", delta, target)
-		movement_locked = heavy_attack.call("is_movement_locked")
+	if area_attack != null:
+		area_attack.call("update_attack", delta, target)
+		movement_locked = area_attack.call("is_movement_locked")
 
 	if target != null and not movement_locked:
 		var offset_to_target := target.global_position - global_position
@@ -82,6 +83,10 @@ func find_contact_damage_target() -> Node:
 
 func take_damage(amount: int, hit_direction: Vector2 = Vector2.ZERO) -> void:
 	health.take_damage(amount, hit_direction)
+
+
+func is_elite() -> bool:
+	return enemy_rank == &"elite"
 
 
 func _on_health_changed(current_health: int, max_health: int) -> void:

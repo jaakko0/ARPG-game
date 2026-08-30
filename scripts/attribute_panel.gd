@@ -1,5 +1,7 @@
 extends PanelContainer
 
+signal close_requested
+
 @onready var points_label: Label = $Margin/VBox/PointsLabel
 @onready var strength_label: Label = $Margin/VBox/StrengthRow/ValueLabel
 @onready var dexterity_label: Label = $Margin/VBox/DexterityRow/ValueLabel
@@ -14,6 +16,7 @@ var attributes: Node
 
 
 func _ready() -> void:
+	$Margin/VBox/Header/BackButton.pressed.connect(close_requested.emit)
 	strength_button.pressed.connect(_spend_attribute.bind(&"strength"))
 	dexterity_button.pressed.connect(_spend_attribute.bind(&"dexterity"))
 	intelligence_button.pressed.connect(_spend_attribute.bind(&"intelligence"))

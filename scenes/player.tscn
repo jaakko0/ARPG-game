@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player_script"]
 [ext_resource type="Script" path="res://scripts/health.gd" id="2_health_script"]
@@ -17,6 +17,7 @@
 [ext_resource type="Resource" path="res://data/equipment/sturdy_vest.tres" id="15_sturdy_vest"]
 [ext_resource type="Script" path="res://scripts/inventory.gd" id="16_inventory_script"]
 [ext_resource type="PackedScene" path="res://scenes/inventory_panel.tscn" id="17_inventory_panel"]
+[ext_resource type="PackedScene" path="res://scenes/character_menu.tscn" id="18_character_menu"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(40, 48)
@@ -125,31 +126,22 @@ theme_override_font_sizes/font_size = 24
 
 [node name="EquipmentPanel" parent="HUD" instance=ExtResource("11_equipment_panel")]
 
-[node name="EquipmentToggleButton" type="Button" parent="HUD"]
-process_mode = 3
-offset_left = 20.0
-offset_top = 270.0
-offset_right = 240.0
-offset_bottom = 330.0
-focus_mode = 0
-theme_override_font_sizes/font_size = 20
-text = "Hide Equipment"
-
 [node name="InventoryPanel" parent="HUD" instance=ExtResource("17_inventory_panel")]
 
-[node name="InventoryToggleButton" type="Button" parent="HUD"]
+[node name="CharacterMenu" parent="HUD" instance=ExtResource("18_character_menu")]
+
+[node name="CharacterMenuButton" type="Button" parent="HUD"]
 process_mode = 3
-offset_left = 260.0
-offset_top = 270.0
-offset_right = 480.0
-offset_bottom = 330.0
+offset_left = 500.0
+offset_top = 20.0
+offset_right = 700.0
+offset_bottom = 88.0
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
-text = "Open Inventory"
+theme_override_font_sizes/font_size = 22
+text = "Character"
 
 [node name="MobileControls" parent="HUD" instance=ExtResource("9_mobile_controls")]
 
-[connection signal="pressed" from="HUD/EquipmentToggleButton" to="." method="_on_equipment_toggle_button_pressed"]
-[connection signal="pressed" from="HUD/InventoryToggleButton" to="." method="_on_inventory_toggle_button_pressed"]
+[connection signal="pressed" from="HUD/CharacterMenuButton" to="." method="_on_character_menu_button_pressed"]
 [connection signal="fireball_requested" from="HUD/MobileControls" to="." method="_on_mobile_fireball_requested"]
 [connection signal="movement_changed" from="HUD/MobileControls" to="." method="_on_mobile_movement_changed"]

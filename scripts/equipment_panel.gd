@@ -3,6 +3,8 @@ extends PanelContainer
 const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
 const EquipmentSlots = preload("res://scripts/equipment_slots.gd")
 
+signal close_requested
+
 @onready var effective_attributes_label: Label = $Margin/VBox/EffectiveAttributesLabel
 @onready var derived_stats_label: Label = $Margin/VBox/DerivedStatsLabel
 
@@ -13,6 +15,7 @@ var slot_labels: Dictionary
 
 
 func _ready() -> void:
+	$Margin/VBox/Header/BackButton.pressed.connect(close_requested.emit)
 	slot_labels = {
 		&"weapon": $Margin/VBox/Slots/WeaponValue,
 		&"head": $Margin/VBox/Slots/HeadValue,

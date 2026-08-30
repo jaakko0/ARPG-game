@@ -36,7 +36,7 @@ custom_minimum_size = Vector2(150, 54)
 layout_mode = 2
 focus_mode = 0
 theme_override_font_sizes/font_size = 20
-text = "Close"
+text = "Back"
 
 [node name="CapacityLabel" type="Label" parent="Margin/VBox"]
 layout_mode = 2

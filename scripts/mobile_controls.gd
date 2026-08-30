@@ -18,3 +18,7 @@ func _on_joystick_direction_changed(direction: Vector2) -> void:
 
 func _on_fireball_button_pressed() -> void:
 	fireball_requested.emit()
+
+
+func reset_movement() -> void:
+	joystick.call("reset_direction")

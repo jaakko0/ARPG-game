@@ -22,9 +22,10 @@ const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
 @onready var fireball_skill = $FireballSkill
 @onready var attribute_panel = $HUD/AttributePanel
 @onready var equipment_panel = $HUD/EquipmentPanel
-@onready var equipment_toggle_button: Button = $HUD/EquipmentToggleButton
 @onready var inventory_panel = $HUD/InventoryPanel
-@onready var inventory_toggle_button: Button = $HUD/InventoryToggleButton
+@onready var character_menu = $HUD/CharacterMenu
+@onready var character_menu_button: Button = $HUD/CharacterMenuButton
+@onready var mobile_controls: Control = $HUD/MobileControls
 
 var starting_position: Vector2
 var facing_direction: Vector2 = Vector2.DOWN
@@ -36,6 +37,7 @@ var base_fireball_damage: int
 var save_status_remaining: float = 0.0
 var mobile_movement_input: Vector2 = Vector2.ZERO
 var is_loading_progression: bool = false
+var character_management_open: bool = false
 
 
 func _ready() -> void:
@@ -52,11 +54,14 @@ func _ready() -> void:
 	attribute_panel.setup(attributes)
 	equipment_panel.setup(equipment, attributes, self)
 	inventory_panel.setup(inventory, equipment, attributes, self)
-	inventory_panel.close_requested.connect(_on_inventory_panel_close_requested)
+	character_menu.section_requested.connect(_on_character_menu_section_requested)
+	character_menu.close_requested.connect(close_character_management)
+	attribute_panel.close_requested.connect(_on_management_panel_back_requested)
+	equipment_panel.close_requested.connect(_on_management_panel_back_requested)
+	inventory_panel.close_requested.connect(_on_management_panel_back_requested)
 	update_equipment_attribute_bonuses()
 	apply_attribute_effects()
-	update_equipment_toggle_button()
-	update_inventory_toggle_button()
+	set_management_panels_hidden()
 	update_health_display(health.current_health, health.max_health)
 	update_gold_display()
 	update_experience_display()
@@ -108,20 +113,23 @@ func _on_mobile_fireball_requested() -> void:
 	try_fireball()
 
 
-func _on_equipment_toggle_button_pressed() -> void:
-	if inventory_panel.visible:
-		set_inventory_open(false)
-
-	equipment_panel.visible = not equipment_panel.visible
-	update_equipment_toggle_button()
-
-
-func _on_inventory_toggle_button_pressed() -> void:
-	set_inventory_open(not inventory_panel.visible)
+func _on_character_menu_button_pressed() -> void:
+	if character_management_open:
+		close_character_management()
+	else:
+		open_character_management()
 
 
-func _on_inventory_panel_close_requested() -> void:
-	set_inventory_open(false)
+func _on_character_menu_section_requested(section_name: StringName) -> void:
+	show_character_section(section_name)
+
+
+func _on_management_panel_back_requested() -> void:
+	if not character_management_open:
+		return
+
+	set_management_panels_hidden()
+	character_menu.visible = true
 
 
 func try_autoattack() -> void:
@@ -440,32 +448,64 @@ func get_derived_stats_debug_data() -> Dictionary:
 	}
 
 
-func update_equipment_toggle_button() -> void:
-	equipment_toggle_button.text = (
-		"Hide Equipment" if equipment_panel.visible else "Show Equipment"
-	)
+func open_character_management() -> void:
+	character_management_open = true
+	set_management_panels_hidden()
+	character_menu.visible = true
+	character_menu_button.text = "Close Menu"
+	mobile_movement_input = Vector2.ZERO
+	velocity = Vector2.ZERO
+	mobile_controls.call("reset_movement")
+	mobile_controls.visible = false
+	get_tree().paused = true
 
 
+func close_character_management() -> void:
+	character_management_open = false
+	set_management_panels_hidden()
+	character_menu_button.text = "Character"
+	mobile_controls.visible = true
+	get_tree().paused = false
+
+
+func show_character_section(section_name: StringName) -> bool:
+	if not character_management_open:
+		return false
+
+	set_management_panels_hidden()
+
+	match section_name:
+		&"attributes":
+			attribute_panel.visible = true
+		&"equipment":
+			equipment_panel.visible = true
+		&"inventory":
+			inventory_panel.visible = true
+		_:
+			character_menu.visible = true
+			return false
+
+	return true
+
+
+func set_management_panels_hidden() -> void:
+	character_menu.visible = false
+	attribute_panel.visible = false
+	equipment_panel.visible = false
+	inventory_panel.visible = false
+
+
+# Kept as a small compatibility helper for code that opened Inventory directly.
 func set_inventory_open(is_open: bool) -> void:
 	if is_open:
-		equipment_panel.visible = false
-		update_equipment_toggle_button()
-		mobile_movement_input = Vector2.ZERO
-		velocity = Vector2.ZERO
-
-	inventory_panel.visible = is_open
-	update_inventory_toggle_button()
-	get_tree().paused = is_open
-
-
-func update_inventory_toggle_button() -> void:
-	inventory_toggle_button.text = (
-		"Close Inventory" if inventory_panel.visible else "Open Inventory"
-	)
+		open_character_management()
+		show_character_section(&"inventory")
+	else:
+		close_character_management()
 
 
 func _exit_tree() -> void:
-	if inventory_panel != null and inventory_panel.visible:
+	if character_management_open:
 		get_tree().paused = false
 
 

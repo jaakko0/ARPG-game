@@ -2,29 +2,21 @@ extends Node
 
 const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
 const EquipmentSlots = preload("res://scripts/equipment_slots.gd")
+const ItemCatalog = preload("res://scripts/item_catalog.gd")
 
 signal equipment_updated
 
-@export var item_catalog: Array = []
+@export var item_catalog: ItemCatalog
 
 var equipped_items: Dictionary = {}
-var catalog_by_id: Dictionary = {}
 
 
 func _ready() -> void:
-	build_catalog()
+	if item_catalog == null:
+		push_error("Equipment requires an ItemCatalog resource.")
+		return
 
-
-func build_catalog() -> void:
-	catalog_by_id.clear()
-
-	for catalog_entry in item_catalog:
-		var item := catalog_entry as EquipmentItemData
-
-		if item == null or not item.is_valid_item():
-			continue
-
-		catalog_by_id[item.item_id] = item
+	item_catalog.report_validation_errors()
 
 
 func equip(item: EquipmentItemData) -> bool:
@@ -59,7 +51,10 @@ func get_equipped_item(slot: StringName) -> EquipmentItemData:
 
 
 func get_item_by_id(item_id: StringName) -> EquipmentItemData:
-	return catalog_by_id.get(item_id) as EquipmentItemData
+	if item_catalog == null:
+		return null
+
+	return item_catalog.get_item_by_id(item_id)
 
 
 func get_total_attribute_bonus(attribute_name: StringName) -> int:

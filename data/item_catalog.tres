@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemCatalog" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/item_catalog.gd" id="1_catalog_script"]
+[ext_resource type="Script" path="res://scripts/equipment_item_data.gd" id="2_item_script"]
+[ext_resource type="Resource" path="res://data/equipment/training_sword.tres" id="3_training_sword"]
+[ext_resource type="Resource" path="res://data/equipment/practice_blade.tres" id="4_practice_blade"]
+[ext_resource type="Resource" path="res://data/equipment/apprentice_hood.tres" id="5_apprentice_hood"]
+[ext_resource type="Resource" path="res://data/equipment/sturdy_vest.tres" id="6_sturdy_vest"]
+
+[resource]
+script = ExtResource("1_catalog_script")
+items = Array[ExtResource("2_item_script")]([ExtResource("3_training_sword"), ExtResource("4_practice_blade"), ExtResource("5_apprentice_hood"), ExtResource("6_sturdy_vest")])
+default_equipment_drop_pool = Array[ExtResource("2_item_script")]([ExtResource("3_training_sword"), ExtResource("4_practice_blade"), ExtResource("5_apprentice_hood"), ExtResource("6_sturdy_vest")])

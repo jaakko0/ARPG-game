@@ -59,9 +59,23 @@ They should always feel they moved forward.
 
 ## Current Status
 
-Pre-production and game design phase.
+Playable Godot 4 prototype for an Android-first portrait ARPG. The current test
+arena supports:
 
-## Planned Technology
+- keyboard and virtual-joystick movement with a following camera
+- shared Health and damage handling, enemy contact damage and player respawn
+- automatic melee attacks and the manually activated Fireball skill
+- gold and equipment drops, inventory, equipment and a Character menu
+- XP, levels, attribute allocation and equipment-derived attribute bonuses
+- versioned JSON save/load for current player progression
+- combat feedback, including damage numbers and hit reactions
+- Basic, Fast, Heavy, Elite Brute and Ranged Cultist enemies
+- reusable AreaAttack and RangedAttack behaviours
+
+The visuals and UI are still prototype placeholders. Future game-design concepts
+in the GDD are not implemented unless they are listed above.
+
+## Technology
 
 - Godot 4
 - GDScript
@@ -77,3 +91,27 @@ Pre-production and game design phase.
 /scenes   - Godot scenes
 /scripts  - Gameplay code
 /data     - Items, skills and game data
+/tests    - Lightweight tracked smoke/regression suite
+
+## Current Architecture
+
+- `Health` is the shared damage/health path for the player and enemies.
+- Static equipment definitions are Godot Resources with stable item IDs.
+- `data/item_catalog.tres` is the authoritative prototype item catalog and
+  default equipment drop pool.
+- `scenes/base_enemy.tscn` owns the common enemy nodes. Current enemy scenes
+  inherit it and override only variant data or add a special attack.
+- `AreaAttack` and `RangedAttack` remain separate reusable behaviours.
+- Keyboard and mobile controls call the same player gameplay methods.
+- New systems should be kept in focused components instead of adding unrelated
+  responsibilities to `player.gd`.
+
+## Validation
+
+Run the tracked smoke/regression suite from the repository root:
+
+```powershell
+godot --headless --path . --script res://tests/run_smoke_tests.gd
+```
+
+Manual testing in Godot is still required for gameplay feel and touch controls.

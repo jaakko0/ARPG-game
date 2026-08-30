@@ -1,6 +1,7 @@
 extends Node
 
 const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
+const ItemCatalog = preload("res://scripts/item_catalog.gd")
 
 @export var pickup_scene: PackedScene
 @export_range(0.0, 1.0, 0.05) var drop_chance: float = 1.0
@@ -9,7 +10,9 @@ const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
 @export var equipment_pickup_scene: PackedScene
 # Generous prototype value so equipment drops can be tested without grinding.
 @export_range(0.0, 1.0, 0.05) var equipment_drop_chance: float = 0.5
-@export var equipment_items: Array = []
+@export var item_catalog: ItemCatalog
+# Leave empty to use ItemCatalog's shared default prototype drop pool.
+@export var equipment_drop_pool_override: Array[EquipmentItemData] = []
 
 
 func drop_loot(drop_position: Vector2) -> Node2D:
@@ -46,9 +49,11 @@ func drop_gold(drop_position: Vector2) -> Node2D:
 
 
 func drop_equipment(drop_position: Vector2) -> Node2D:
+	var equipment_drop_pool := get_equipment_drop_pool()
+
 	if (
 		equipment_pickup_scene == null
-		or equipment_items.is_empty()
+		or equipment_drop_pool.is_empty()
 		or randf() >= equipment_drop_chance
 	):
 		return null
@@ -58,7 +63,7 @@ func drop_equipment(drop_position: Vector2) -> Node2D:
 	if scene_root == null:
 		return null
 
-	var item := equipment_items.pick_random() as EquipmentItemData
+	var item := equipment_drop_pool.pick_random() as EquipmentItemData
 
 	if item == null or not item.is_valid_item():
 		return null
@@ -75,3 +80,20 @@ func drop_equipment(drop_position: Vector2) -> Node2D:
 		pickup.call("setup", item)
 
 	return pickup
+
+
+func get_equipment_drop_pool() -> Array[EquipmentItemData]:
+	var resolved_pool: Array[EquipmentItemData] = []
+
+	if not equipment_drop_pool_override.is_empty():
+		for item in equipment_drop_pool_override:
+			if item != null and item.is_valid_item():
+				resolved_pool.append(item)
+
+		return resolved_pool
+
+	if item_catalog == null:
+		return resolved_pool
+
+	item_catalog.report_validation_errors()
+	return item_catalog.get_default_equipment_drop_pool()

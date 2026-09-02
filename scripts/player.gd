@@ -2,6 +2,7 @@ extends CharacterBody2D
 
 const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
 const HitData = preload("res://scripts/hit_data.gd")
+const DamageTypes = preload("res://scripts/damage_types.gd")
 const PRIMARY_SKILL_SLOT_INDEX: int = 0
 const SECONDARY_SKILL_SLOT_INDEX: int = 1
 
@@ -176,7 +177,7 @@ func try_autoattack() -> void:
 			attack_damage,
 			self,
 			hit_direction,
-			&"physical",
+			DamageTypes.PHYSICAL,
 			hit_tags
 		)
 		attack_target.call("take_hit", hit_data)

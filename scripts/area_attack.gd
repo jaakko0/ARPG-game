@@ -1,6 +1,7 @@
 extends Node2D
 
 const HitData = preload("res://scripts/hit_data.gd")
+const DamageTypes = preload("res://scripts/damage_types.gd")
 
 signal telegraph_started
 signal attack_executed(hit_target: bool)
@@ -95,7 +96,7 @@ func create_attack_hit(hit_direction: Vector2) -> HitData:
 		damage,
 		get_parent(),
 		hit_direction,
-		&"physical",
+		DamageTypes.PHYSICAL,
 		hit_tags,
 		false
 	)

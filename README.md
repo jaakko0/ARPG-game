@@ -69,6 +69,8 @@ arena supports:
 - XP, levels, attribute allocation and equipment-derived attribute bonuses
 - versioned JSON save/load for current player progression
 - player critical hits and combat feedback, including damage numbers and hit reactions
+- authoritative Physical, Fire and Lightning hit metadata; damage types do not
+  have resistances, weaknesses or status effects yet
 - Basic, Fast, Heavy, Elite Brute and Ranged Cultist enemies
 - reusable AreaAttack and RangedAttack behaviours
 
@@ -97,6 +99,9 @@ in the GDD are not implemented unless they are listed above.
 
 - `HitData` carries each hit's amount, source, direction, damage type, tags and
   critical flag. `Health` is the single authoritative place that subtracts HP.
+- `DamageTypes` defines the supported Physical, Fire and Lightning identifiers.
+  A future damage-resolution layer belongs between offensive hit creation and
+  final `Health` application; it is intentionally not implemented yet.
 - The player's small `HitFactory` owns the configurable prototype critical chance
   and multiplier; enemy hits currently remain non-critical.
 - Static equipment definitions are Godot Resources with stable item IDs.

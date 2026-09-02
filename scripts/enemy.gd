@@ -1,6 +1,7 @@
 extends CharacterBody2D
 
 const HitData = preload("res://scripts/hit_data.gd")
+const DamageTypes = preload("res://scripts/damage_types.gd")
 
 @export var move_speed: float = 120.0
 @export var detection_radius: float = 450.0
@@ -89,7 +90,7 @@ func create_contact_hit(hit_direction: Vector2) -> HitData:
 		contact_damage,
 		self,
 		hit_direction,
-		&"physical",
+		DamageTypes.PHYSICAL,
 		hit_tags,
 		false
 	)

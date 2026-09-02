@@ -1,6 +1,7 @@
 extends CharacterBody2D
 
 const HitData = preload("res://scripts/hit_data.gd")
+const DamageTypes = preload("res://scripts/damage_types.gd")
 
 @export var speed: float = 280.0
 @export var lifetime: float = 2.0
@@ -66,7 +67,7 @@ func create_hit_data() -> HitData:
 		damage,
 		hit_source,
 		direction,
-		&"physical",
+		DamageTypes.PHYSICAL,
 		hit_tags,
 		false
 	)

@@ -1,13 +1,14 @@
 extends Node
 
 const HitData = preload("res://scripts/hit_data.gd")
+const DamageTypes = preload("res://scripts/damage_types.gd")
 
 @export var enemy_group: StringName = &"enemy"
 @export_range(0.1, 60.0, 0.1) var autocast_interval: float = 5.0
 @export_range(1.0, 1000.0, 1.0) var radius: float = 170.0
 @export var damage: int = 22
 @export var intelligence_damage_per_point: int = 2
-@export var damage_type: StringName = &"fire"
+@export var damage_type: StringName = DamageTypes.FIRE
 @export var visual_color: Color = Color(1.0, 0.32, 0.08, 0.9)
 @export_range(1.0, 30.0, 1.0) var visual_width: float = 10.0
 @export_range(0.05, 1.0, 0.01) var visual_lifetime: float = 0.3

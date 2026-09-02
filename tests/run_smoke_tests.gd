@@ -12,6 +12,7 @@ const FireballProjectileScript = preload("res://scripts/fireball_projectile.gd")
 const EnemyProjectileScript = preload("res://scripts/enemy_projectile.gd")
 const FloatingDamageNumberScript = preload("res://scripts/floating_damage_number.gd")
 const HitDataScript = preload("res://scripts/hit_data.gd")
+const DamageTypesScript = preload("res://scripts/damage_types.gd")
 
 const EXPECTED_ITEM_IDS: Array[StringName] = [
 	&"training_sword",
@@ -84,6 +85,7 @@ func _run_suite() -> void:
 	var enemies := await _test_enemy_variants(sandbox)
 
 	if player != null and not enemies.is_empty():
+		await _test_damage_type_foundation(sandbox, player, enemies)
 		await _test_hit_data_and_critical_hits(sandbox, player, enemies)
 		await _test_lightning_arc(sandbox, player, enemies)
 		await _test_flame_nova(sandbox, player, enemies)
@@ -481,6 +483,145 @@ func _test_enemy_variants(sandbox: Node2D) -> Array[CharacterBody2D]:
 	return enemies
 
 
+func _test_damage_type_foundation(
+	sandbox: Node2D,
+	player: CharacterBody2D,
+	enemies: Array[CharacterBody2D]
+) -> void:
+	var supported_types: Array[StringName] = DamageTypesScript.get_supported_types()
+	_check(
+		supported_types.size() == 3
+		and supported_types.count(DamageTypesScript.PHYSICAL) == 1
+		and supported_types.count(DamageTypesScript.FIRE) == 1
+		and supported_types.count(DamageTypesScript.LIGHTNING) == 1,
+		"DamageTypes exposes exactly three unique supported identifiers"
+	)
+	_check(
+		DamageTypesScript.PHYSICAL == &"physical",
+		"Physical has one authoritative StringName identifier"
+	)
+	_check(
+		DamageTypesScript.FIRE == &"fire",
+		"Fire has one authoritative StringName identifier"
+	)
+	_check(
+		DamageTypesScript.LIGHTNING == &"lightning",
+		"Lightning has one authoritative StringName identifier"
+	)
+	_check(
+		DamageTypesScript.is_valid(DamageTypesScript.PHYSICAL)
+		and DamageTypesScript.is_valid(DamageTypesScript.FIRE)
+		and DamageTypesScript.is_valid(DamageTypesScript.LIGHTNING)
+		and not DamageTypesScript.is_valid(&"ice"),
+		"DamageTypes accepts only the current intended identifiers"
+	)
+
+	var missing_type_hit: RefCounted = HitDataScript.new(3, player)
+	var invalid_type_hit: RefCounted = HitDataScript.new(
+		3,
+		player,
+		Vector2.RIGHT,
+		&"unsupported"
+	)
+	_check(
+		missing_type_hit.get("damage_type") == DamageTypesScript.PHYSICAL
+		and invalid_type_hit.get("damage_type") == DamageTypesScript.PHYSICAL,
+		"Missing and invalid HitData types safely fall back to Physical"
+	)
+
+	var basic := _find_enemy_by_name(enemies, "Enemy")
+
+	if basic == null:
+		_check(false, "Damage-type pipeline test target is available")
+		return
+
+	var basic_health := basic.get_node("Health")
+	basic_health.call("restore_full")
+	var health_before: int = basic_health.get("current_health")
+	var applied_hits: Array[RefCounted] = []
+	var capture_applied_hit := func(applied_hit) -> void:
+		applied_hits.append(applied_hit)
+	basic_health.connect("damage_taken", capture_applied_hit)
+	var fire_hit: RefCounted = HitDataScript.new(
+		7,
+		player,
+		Vector2.RIGHT,
+		DamageTypesScript.FIRE
+	)
+	basic.call("take_hit", fire_hit)
+	basic_health.disconnect("damage_taken", capture_applied_hit)
+	var damage_number := _find_last_node_with_script(
+		sandbox,
+		FloatingDamageNumberScript
+	)
+	_check(
+		basic_health.get("current_health") == health_before - 7,
+		"Damage type metadata does not change numerical Health damage"
+	)
+	_check(
+		applied_hits.size() == 1
+		and applied_hits[0].get("damage_type") == DamageTypesScript.FIRE,
+		"Fire type survives HitData through Health's applied-hit signal"
+	)
+	_check(
+		damage_number != null
+		and damage_number.get("displayed_damage_type") == DamageTypesScript.FIRE,
+		"CombatFeedback receives and forwards the applied Fire metadata"
+	)
+
+	basic_health.call("restore_full")
+	applied_hits.clear()
+	var mutated_invalid_hit: RefCounted = HitDataScript.new(
+		5,
+		player,
+		Vector2.LEFT,
+		DamageTypesScript.LIGHTNING
+	)
+	mutated_invalid_hit.set("damage_type", &"invalid_after_creation")
+	basic_health.connect("damage_taken", capture_applied_hit)
+	basic.call("take_hit", mutated_invalid_hit)
+	basic_health.disconnect("damage_taken", capture_applied_hit)
+	_check(
+		basic_health.get("current_health") == basic_health.get("max_health") - 5
+		and applied_hits.size() == 1
+		and applied_hits[0].get("damage_type") == DamageTypesScript.PHYSICAL,
+		"Health applies invalid-type damage safely and emits Physical fallback metadata"
+	)
+
+	var hit_factory := player.get_node("HitFactory")
+	hit_factory.set("critical_chance", 1.0)
+	hit_factory.set("critical_damage_multiplier", 2.0)
+	var typed_critical_hits: Array[RefCounted] = []
+
+	for damage_type in supported_types:
+		typed_critical_hits.append(hit_factory.call(
+			"create_hit",
+			11,
+			player,
+			Vector2.UP,
+			damage_type
+		))
+
+	var typed_crits_are_unchanged := true
+
+	for hit_index in typed_critical_hits.size():
+		var typed_hit := typed_critical_hits[hit_index]
+
+		if (
+			typed_hit.get("amount") != 22
+			or not typed_hit.get("is_critical")
+			or typed_hit.get("damage_type") != supported_types[hit_index]
+		):
+			typed_crits_are_unchanged = false
+
+	_check(
+		typed_crits_are_unchanged,
+		"Critical chance and multiplier behave identically across all damage types"
+	)
+	hit_factory.set("critical_chance", 0.0)
+	basic_health.call("restore_full")
+
+
 func _test_hit_data_and_critical_hits(
 	sandbox: Node2D,
 	player: CharacterBody2D,
@@ -511,14 +652,14 @@ func _test_hit_data_and_critical_hits(
 		7,
 		player,
 		Vector2.RIGHT,
-		&"physical",
+		DamageTypesScript.PHYSICAL,
 		hit_tags,
 		false
 	)
 	_check(
 		sample_hit.get("amount") == 7
 		and sample_hit.get("source") == player
-		and sample_hit.get("damage_type") == &"physical"
+		and sample_hit.get("damage_type") == DamageTypesScript.PHYSICAL
 		and sample_hit.get("tags").has(&"test")
 		and not sample_hit.get("is_critical"),
 		"HitData carries amount, source, direction, type, tags and critical flag"
@@ -556,7 +697,7 @@ func _test_hit_data_and_critical_hits(
 		13,
 		player,
 		Vector2.UP,
-		&"fire",
+		DamageTypesScript.FIRE,
 		hit_tags
 	)
 	_check(
@@ -571,7 +712,7 @@ func _test_hit_data_and_critical_hits(
 		13,
 		player,
 		Vector2.UP,
-		&"fire",
+		DamageTypesScript.FIRE,
 		hit_tags
 	)
 	_check(
@@ -580,7 +721,7 @@ func _test_hit_data_and_critical_hits(
 	)
 	_check(
 		critical_hit.get("source") == player
-		and critical_hit.get("damage_type") == &"fire"
+		and critical_hit.get("damage_type") == DamageTypesScript.FIRE
 		and critical_hit.get("tags").has(&"direct"),
 		"Critical calculation preserves source, damage type and tags"
 	)
@@ -602,7 +743,7 @@ func _test_hit_data_and_critical_hits(
 	_check(
 		autoattack_hits.size() == 1
 		and autoattack_hits[0].get("is_critical")
-		and autoattack_hits[0].get("damage_type") == &"physical"
+		and autoattack_hits[0].get("damage_type") == DamageTypesScript.PHYSICAL
 		and autoattack_hits[0].get("source") == player,
 		"Autoattack critical carries physical player-hit metadata"
 	)
@@ -646,7 +787,7 @@ func _test_hit_data_and_critical_hits(
 	_check(
 		fireball_hits.size() == 1
 		and fireball_hits[0].get("is_critical")
-		and fireball_hits[0].get("damage_type") == &"fire"
+		and fireball_hits[0].get("damage_type") == DamageTypesScript.FIRE
 		and fireball_hits[0].get("source") == player,
 		"Fireball hit carries fire, critical and player-source metadata"
 	)
@@ -689,7 +830,8 @@ func _test_hit_data_and_critical_hits(
 		and lightning_chain_hits.size() == 1
 		and lightning_first_hits[0].get("is_critical")
 		and lightning_chain_hits[0].get("is_critical")
-		and lightning_first_hits[0].get("damage_type") == &"lightning"
+		and lightning_first_hits[0].get("damage_type") == DamageTypesScript.LIGHTNING
+		and lightning_chain_hits[0].get("damage_type") == DamageTypesScript.LIGHTNING
 		and lightning_chain_hits[0].get("tags").has(&"chain"),
 		"Lightning first and chain hits carry independent critical metadata"
 	)
@@ -724,7 +866,8 @@ func _test_hit_data_and_critical_hits(
 		and nova_elite_hits.size() == 1
 		and nova_heavy_hits[0].get("is_critical")
 		and nova_elite_hits[0].get("is_critical")
-		and nova_heavy_hits[0].get("damage_type") == &"fire",
+		and nova_heavy_hits[0].get("damage_type") == DamageTypesScript.FIRE
+		and nova_elite_hits[0].get("damage_type") == DamageTypesScript.FIRE,
 		"Flame Nova criticals carry fire metadata through shared feedback"
 	)
 	_check(
@@ -741,7 +884,7 @@ func _test_hit_data_and_critical_hits(
 	_check(
 		player_health.get("current_health") == player_health_before - basic.get("contact_damage")
 		and contact_hit.get("source") == basic
-		and contact_hit.get("damage_type") == &"physical"
+		and contact_hit.get("damage_type") == DamageTypesScript.PHYSICAL
 		and not contact_hit.get("is_critical"),
 		"Enemy contact damage uses non-critical physical HitData"
 	)
@@ -763,9 +906,28 @@ func _test_hit_data_and_critical_hits(
 	_check(
 		area_hits.size() == 1
 		and area_hits[0].get("source") == heavy
-		and area_hits[0].get("damage_type") == &"physical"
+		and area_hits[0].get("damage_type") == DamageTypesScript.PHYSICAL
 		and not area_hits[0].get("is_critical"),
 		"Enemy AreaAttack carries non-critical physical metadata"
+	)
+
+	player_health.call("restore_full")
+	elite.global_position = player.global_position + Vector2(100.0, 0.0)
+	var ground_slam := elite.get_node("AreaAttack")
+	var ground_slam_hits: Array[RefCounted] = []
+	var capture_ground_slam_hit := func(applied_hit) -> void:
+		ground_slam_hits.append(applied_hit)
+	player_health.connect("damage_taken", capture_ground_slam_hit)
+	player_health_before = player_health.get("current_health")
+	ground_slam.call("execute_attack", player)
+	player_health.disconnect("damage_taken", capture_ground_slam_hit)
+	_check(
+		player_health.get("current_health") == player_health_before - ground_slam.get("damage")
+		and ground_slam_hits.size() == 1
+		and ground_slam_hits[0].get("source") == elite
+		and ground_slam_hits[0].get("damage_type") == DamageTypesScript.PHYSICAL
+		and not ground_slam_hits[0].get("is_critical"),
+		"Elite Ground Slam uses non-critical Physical HitData"
 	)
 
 	player_health.call("restore_full")
@@ -783,7 +945,7 @@ func _test_hit_data_and_critical_hits(
 		)
 		_check(
 			ranged_hit.get("source") == ranged
-			and ranged_hit.get("damage_type") == &"physical"
+			and ranged_hit.get("damage_type") == DamageTypesScript.PHYSICAL
 			and ranged_hit.get("tags").has(&"projectile")
 			and not ranged_hit.get("is_critical"),
 			"Ranged projectile carries source, type, tags and non-critical metadata"
@@ -1431,8 +1593,11 @@ func _test_save_compatibility(player: CharacterBody2D) -> void:
 	var state_before_failure: Dictionary = save_coordinator.call("build_current_player_data")
 	_check(
 		not state_before_failure.has("passive_skills")
-		and not state_before_failure.has("autocast_timer"),
-		"Prototype passive slot and internal timer do not change the save schema"
+		and not state_before_failure.has("autocast_timer")
+		and not state_before_failure.has("damage_type")
+		and not state_before_failure.has("hit_data")
+		and not state_before_failure.has("resistances"),
+		"Runtime skill and damage metadata do not change the version 1 save schema"
 	)
 	var missing_result: Dictionary = save_coordinator.call("load_progression")
 	_check(not missing_result.get("success", false), "Missing save is rejected safely")
@@ -1555,7 +1720,7 @@ func _make_test_hit(
 	amount: int,
 	source: Node = null,
 	hit_direction: Vector2 = Vector2.ZERO,
-	damage_type: StringName = &"physical",
+	damage_type: StringName = DamageTypesScript.PHYSICAL,
 	tags: Array[StringName] = [],
 	is_critical: bool = false
 ) -> RefCounted:

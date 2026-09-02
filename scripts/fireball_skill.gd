@@ -1,12 +1,14 @@
 extends Node
 
+const DamageTypes = preload("res://scripts/damage_types.gd")
+
 @export var projectile_scene: PackedScene
 @export var damage: int = 20
 @export var projectile_speed: float = 520.0
 @export var projectile_spawn_distance: float = 44.0
 @export_range(0.1, 30.0, 0.1) var cooldown: float = 2.0
 @export var intelligence_damage_per_point: int = 2
-@export var damage_type: StringName = &"fire"
+@export var damage_type: StringName = DamageTypes.FIRE
 
 var cooldown_remaining: float = 0.0
 var base_damage: int

@@ -1,6 +1,7 @@
 extends Node
 
 const HitData = preload("res://scripts/hit_data.gd")
+const DamageTypes = preload("res://scripts/damage_types.gd")
 
 @export var enemy_group: StringName = &"enemy"
 @export_range(1.0, 2000.0, 1.0) var target_range: float = 320.0
@@ -9,7 +10,7 @@ const HitData = preload("res://scripts/hit_data.gd")
 @export_range(0.0, 1.0, 0.05) var chain_damage_multiplier: float = 0.75
 @export_range(0.1, 30.0, 0.1) var cooldown: float = 1.5
 @export var intelligence_damage_per_point: int = 2
-@export var damage_type: StringName = &"lightning"
+@export var damage_type: StringName = DamageTypes.LIGHTNING
 @export var visual_color: Color = Color(0.45, 0.9, 1.0, 1.0)
 @export_range(1.0, 30.0, 1.0) var visual_width: float = 8.0
 @export_range(0.0, 30.0, 1.0) var visual_jitter: float = 8.0

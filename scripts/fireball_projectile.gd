@@ -1,6 +1,7 @@
 extends CharacterBody2D
 
 const HitData = preload("res://scripts/hit_data.gd")
+const DamageTypes = preload("res://scripts/damage_types.gd")
 
 @export var speed: float = 520.0
 @export var lifetime: float = 1.5
@@ -11,7 +12,7 @@ var damage: int = 20
 var lifetime_remaining: float
 var source: Node
 var hit_factory: Node
-var damage_type: StringName = &"fire"
+var damage_type: StringName = DamageTypes.FIRE
 var hit_tags: Array[StringName] = []
 
 
@@ -35,7 +36,7 @@ func setup(
 	speed = maxf(new_speed, 0.0)
 	source = new_source
 	hit_factory = new_hit_factory
-	damage_type = new_damage_type
+	damage_type = DamageTypes.normalize(new_damage_type)
 	hit_tags.assign(new_hit_tags)
 	rotation = direction.angle()
 

@@ -1,11 +1,14 @@
 extends Node2D
 
 const HitData = preload("res://scripts/hit_data.gd")
+const DamageTypes = preload("res://scripts/damage_types.gd")
 
 @export_range(0.1, 3.0, 0.05) var duration: float = 0.7
 @export_range(0.0, 200.0, 1.0) var rise_distance: float = 46.0
 
 @onready var damage_label: Label = $DamageLabel
+
+var displayed_damage_type: StringName = DamageTypes.PHYSICAL
 
 
 func setup(hit_data: HitData) -> void:
@@ -14,6 +17,7 @@ func setup(hit_data: HitData) -> void:
 		return
 
 	damage_label.text = str(maxi(hit_data.amount, 0))
+	displayed_damage_type = hit_data.damage_type
 
 	if hit_data.is_critical:
 		damage_label.text += " CRIT"

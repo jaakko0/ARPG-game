@@ -83,6 +83,7 @@ func _run_suite() -> void:
 
 	if player != null and not enemies.is_empty():
 		await _test_lightning_arc(sandbox, player, enemies)
+		await _test_flame_nova(sandbox, player, enemies)
 		await _test_combat_and_rewards(sandbox, player, enemies)
 		_test_progression(player)
 		_test_item_catalog_and_equipment(player, enemies)
@@ -146,7 +147,7 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 
 	var player_components_exist := true
 
-	for component_path in ["Health", "Experience", "Attributes", "Equipment", "Inventory", "SaveSystem", "SaveCoordinator"]:
+	for component_path in ["Health", "Experience", "Attributes", "Equipment", "Inventory", "SaveSystem", "SaveCoordinator", "AutocastSkillSlots"]:
 		if player.get_node_or_null(component_path) == null:
 			player_components_exist = false
 
@@ -157,6 +158,7 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 	_check(player.has_method("get_skill_in_slot"), "Player generic skill-slot lookup exists")
 	_check(not player.has_method("try_fireball"), "Player has no duplicate Fireball-specific activation method")
 	_check(not player.has_method("try_lightning_arc"), "Player has no Lightning-specific activation method")
+	_check(not player.has_method("try_flame_nova"), "Player has no Flame-Nova-specific activation method")
 	_check(player.has_method("get_movement_input"), "Player movement input path exists")
 	_check(player.has_method("save_progression") and player.has_method("load_progression"), "Player save/load command entry points exist")
 	_check(not player.has_method("get_progression_save_data"), "Player no longer builds the save payload")
@@ -166,6 +168,8 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 	_check(InputMap.has_action("skill_slot_2"), "Generic second skill-slot input action exists")
 	_check(not InputMap.has_action("fireball"), "Legacy Fireball-specific input action is removed")
 	_check(not InputMap.has_action("lightning_arc"), "No Lightning-specific input action exists")
+	_check(not InputMap.has_action("flame_nova"), "Flame Nova has no manual input action")
+	_check(not InputMap.has_action("skill_slot_3"), "No third manual skill-slot action exists")
 	_check(InputMap.has_action("save_game") and InputMap.has_action("load_game"), "K/L save and load actions exist")
 
 	var space_uses_first_slot := false
@@ -194,6 +198,9 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 
 	var fireball_skill := player.get_node("FireballSkill")
 	var lightning_arc_skill := player.get_node("LightningArcSkill")
+	var autocast_skill_slots := player.get_node("AutocastSkillSlots")
+	var flame_nova_skill := player.get_node("AutocastSkillSlots/FlameNovaSkill")
+	autocast_skill_slots.set_physics_process(false)
 	_check(
 		player.call("get_skill_in_slot", 0) == fireball_skill,
 		"Fireball runtime is assigned to skill slot 0"
@@ -205,6 +212,41 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 	_check(player.call("get_skill_in_slot", 2) == null, "Unassigned skill slots fail safely")
 	_check(fireball_skill.has_method("try_activate"), "Assigned Fireball runtime owns activation")
 	_check(lightning_arc_skill.has_method("try_activate"), "Assigned Lightning Arc runtime owns activation")
+	_check(
+		autocast_skill_slots.has_method("update_autocast_skills"),
+		"Player owns a reusable passive/autocast update boundary"
+	)
+	_check(
+		autocast_skill_slots.call("get_skill_in_slot", 0) == flame_nova_skill,
+		"Flame Nova occupies passive/autocast slot 0"
+	)
+	_check(
+		autocast_skill_slots.call("get_skill_in_slot", 1) == null,
+		"Unused passive/autocast slots are empty safely"
+	)
+	_check(flame_nova_skill.get("damage") == 22, "Flame Nova prototype base damage is configured")
+	_check(
+		is_equal_approx(flame_nova_skill.get("autocast_interval"), 5.0),
+		"Flame Nova prototype autocast interval is configured"
+	)
+
+	var original_passive_skill := autocast_skill_slots.call("get_skill_in_slot", 0) as Node
+	_check(
+		autocast_skill_slots.call("set_skill_in_slot", 0, null)
+		and autocast_skill_slots.call("get_skill_in_slot", 0) == null,
+		"Passive/autocast slot can be empty safely"
+	)
+	autocast_skill_slots.call("update_autocast_skills", 0.0)
+	_check(
+		autocast_skill_slots.call("set_skill_in_slot", 0, original_passive_skill),
+		"Prototype passive skill can be equipped again"
+	)
+	flame_nova_skill.set("time_until_ready", 0.0)
+	autocast_skill_slots.call("update_autocast_skills", 0.0)
+	_check(
+		is_zero_approx(flame_nova_skill.get("time_until_ready")),
+		"Ready Flame Nova waits without consuming its timer when no target exists"
+	)
 	lightning_arc_skill.set("cooldown_remaining", 0.0)
 	_check(
 		not player.call("activate_skill", 1, Vector2.RIGHT),
@@ -261,6 +303,7 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 	_check(mobile_controls.has_signal("skill_slot_requested"), "Mobile generic skill-slot signal exists")
 	_check(not mobile_controls.has_signal("fireball_requested"), "Mobile controls have no Fireball-specific signal")
 	_check(not mobile_controls.has_signal("lightning_arc_requested"), "Mobile controls have no Lightning-specific signal")
+	_check(mobile_controls.get_node_or_null("FlameNovaButton") == null, "Flame Nova adds no mobile button")
 	_check(
 		mobile_controls.is_connected(
 			"skill_slot_requested",
@@ -303,6 +346,14 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 			),
 			"Lightning Arc button does not overlap the joystick"
 		)
+
+	var manual_skill_button_count := 0
+
+	for control in mobile_controls.get_children():
+		if control is Button:
+			manual_skill_button_count += 1
+
+	_check(manual_skill_button_count == 2, "HUD still contains exactly two manual skill buttons")
 
 	for child in sandbox.get_children():
 		if child.get_script() == FireballProjectileScript:
@@ -563,6 +614,242 @@ func _test_lightning_arc(
 	await process_frame
 
 
+func _test_flame_nova(
+	sandbox: Node2D,
+	player: CharacterBody2D,
+	enemies: Array[CharacterBody2D]
+) -> void:
+	var basic := _find_enemy_by_name(enemies, "Enemy")
+	var fast := _find_enemy_by_name(enemies, "FastEnemy")
+	var heavy := _find_enemy_by_name(enemies, "HeavyEnemy")
+	var autocast_skill_slots := player.get_node("AutocastSkillSlots")
+	var flame_nova_skill := autocast_skill_slots.get_node("FlameNovaSkill")
+	var fireball_skill := player.get_node("FireballSkill")
+	var lightning_arc_skill := player.get_node("LightningArcSkill")
+
+	if basic == null or fast == null or heavy == null:
+		_check(false, "Flame Nova test targets are available")
+		return
+
+	autocast_skill_slots.set_physics_process(false)
+
+	for enemy in enemies:
+		enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+		enemy.get_node("Health").call("restore_full")
+
+	flame_nova_skill.set("time_until_ready", 0.0)
+	var visuals_before := get_nodes_in_group("flame_nova_visual").size()
+	autocast_skill_slots.call("update_autocast_skills", 1.0)
+	_check(
+		is_zero_approx(flame_nova_skill.get("time_until_ready")),
+		"Ready Flame Nova remains ready while no enemy is nearby"
+	)
+	_check(
+		get_nodes_in_group("flame_nova_visual").size() == visuals_before,
+		"No-target Flame Nova creates no visual"
+	)
+
+	basic.global_position = player.global_position + Vector2(100.0, 0.0)
+	var basic_health := basic.get_node("Health")
+	var basic_health_before: int = basic_health.get("current_health")
+	var nova_damage: int = flame_nova_skill.get("damage")
+	fireball_skill.set("cooldown_remaining", 0.0)
+	lightning_arc_skill.set("cooldown_remaining", 0.0)
+	autocast_skill_slots.call("update_autocast_skills", 0.0)
+	_check(
+		basic_health.get("current_health") == basic_health_before - nova_damage,
+		"Ready Flame Nova activates when an enemy enters its radius"
+	)
+	_check(
+		is_equal_approx(
+			flame_nova_skill.get("time_until_ready"),
+			flame_nova_skill.get("autocast_interval")
+		),
+		"Successful Flame Nova restarts its autocast interval"
+	)
+	_check(
+		is_zero_approx(fireball_skill.get("cooldown_remaining"))
+		and is_zero_approx(lightning_arc_skill.get("cooldown_remaining")),
+		"Flame Nova does not affect either active-skill cooldown"
+	)
+	_check(
+		get_nodes_in_group("flame_nova_visual").size() == visuals_before + 1,
+		"Flame Nova creates one main visual per activation"
+	)
+
+	var nova_visual := get_nodes_in_group("flame_nova_visual").back() as Line2D
+	_check(
+		nova_visual != null
+		and nova_visual.points.size() == 48
+		and nova_visual.global_position.is_equal_approx(player.global_position),
+		"Flame Nova visual is one player-centered ring"
+	)
+	await create_timer(0.4).timeout
+	_check(
+		get_nodes_in_group("flame_nova_visual").size() == visuals_before,
+		"Flame Nova visual cleans itself up after its short lifetime"
+	)
+
+	basic_health.call("restore_full")
+	basic_health_before = basic_health.get("current_health")
+	var interval: float = flame_nova_skill.get("autocast_interval")
+	flame_nova_skill.set("time_until_ready", interval)
+	autocast_skill_slots.call("update_autocast_skills", interval - 0.1)
+	_check(
+		basic_health.get("current_health") == basic_health_before,
+		"Flame Nova does not activate before its interval completes"
+	)
+	autocast_skill_slots.call("update_autocast_skills", 0.2)
+	_check(
+		basic_health.get("current_health") == basic_health_before - nova_damage,
+		"Flame Nova activates once when its interval completes"
+	)
+	autocast_skill_slots.call("update_autocast_skills", 0.0)
+	_check(
+		basic_health.get("current_health") == basic_health_before - nova_damage,
+		"One Flame Nova activation cannot tick the same target repeatedly"
+	)
+
+	for enemy in enemies:
+		enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+		enemy.get_node("Health").call("restore_full")
+
+	basic.global_position = player.global_position + Vector2(100.0, 0.0)
+	heavy.global_position = player.global_position + Vector2(-100.0, 0.0)
+	fast.global_position = player.global_position + Vector2(171.0, 0.0)
+	var fast_health := fast.get_node("Health")
+	var heavy_health := heavy.get_node("Health")
+	basic_health_before = basic_health.get("current_health")
+	var fast_health_before: int = fast_health.get("current_health")
+	var heavy_health_before: int = heavy_health.get("current_health")
+	visuals_before = get_nodes_in_group("flame_nova_visual").size()
+	flame_nova_skill.set("time_until_ready", 0.0)
+	autocast_skill_slots.call("update_autocast_skills", 0.0)
+	_check(
+		basic_health.get("current_health") == basic_health_before - nova_damage
+		and heavy_health.get("current_health") == heavy_health_before - nova_damage,
+		"Flame Nova damages every valid enemy inside its radius exactly once"
+	)
+	_check(
+		fast_health.get("current_health") == fast_health_before,
+		"Flame Nova does not damage enemies outside its configured radius"
+	)
+	_check(
+		get_nodes_in_group("flame_nova_visual").size() == visuals_before + 1,
+		"Multi-target Flame Nova still creates only one main visual"
+	)
+
+	for enemy in enemies:
+		enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+		enemy.get_node("Health").call("restore_full")
+
+	basic.global_position = player.global_position + Vector2(100.0, 0.0)
+	basic_health_before = basic_health.get("current_health")
+	flame_nova_skill.set("time_until_ready", 0.0)
+	autocast_skill_slots.set_physics_process(true)
+	player.call("open_character_management")
+	await create_timer(0.1, true, true).timeout
+	_check(
+		basic_health.get("current_health") == basic_health_before
+		and is_zero_approx(flame_nova_skill.get("time_until_ready")),
+		"Character menu pause stops Flame Nova processing and damage"
+	)
+	player.call("close_character_management")
+
+	for step in 3:
+		await physics_frame
+
+	_check(
+		basic_health.get("current_health") == basic_health_before - nova_damage,
+		"Flame Nova resumes safely after the Character menu closes"
+	)
+	autocast_skill_slots.set_physics_process(false)
+
+	basic_health.call("restore_full")
+	basic_health_before = basic_health.get("current_health")
+	flame_nova_skill.set("time_until_ready", 0.0)
+	player.set("starting_position", player.global_position)
+	var player_health := player.get_node("Health")
+	player_health.call("take_damage", player_health.get("current_health"))
+	autocast_skill_slots.call("update_autocast_skills", 0.0)
+	_check(
+		basic_health.get("current_health") == basic_health_before
+		and is_zero_approx(flame_nova_skill.get("time_until_ready")),
+		"Flame Nova cannot attack while player health is depleted"
+	)
+	player.call("respawn")
+	_check(
+		player_health.get("current_health") == player_health.get("max_health")
+		and player.global_position == player.get("starting_position"),
+		"Player reset still restores health and starting position"
+	)
+	autocast_skill_slots.call("update_autocast_skills", 0.0)
+	_check(
+		basic_health.get("current_health") == basic_health_before - nova_damage,
+		"Ready Flame Nova continues safely after player reset"
+	)
+
+	for enemy in enemies:
+		enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+		enemy.get_node("Health").call("restore_full")
+
+	var enemy_scene := load("res://scenes/enemy.tscn") as PackedScene
+	var lethal_targets: Array[CharacterBody2D] = []
+
+	for offset in [Vector2(80.0, 0.0), Vector2(-80.0, 0.0)]:
+		var lethal_target := enemy_scene.instantiate() as CharacterBody2D
+		sandbox.add_child(lethal_target)
+		lethal_target.global_position = player.global_position + offset
+		lethal_target.set_physics_process(false)
+		lethal_target.set("experience_reward", 1)
+		lethal_target.get_node("LootDropper").set("equipment_drop_chance", 0.0)
+		var lethal_health := lethal_target.get_node("Health")
+		lethal_health.call("take_damage", lethal_health.get("current_health") - 1)
+		lethal_targets.append(lethal_target)
+
+	var experience := player.get_node("Experience")
+	experience.call("restore_progress", 1, 0)
+	var experience_before: int = experience.get("current_experience")
+	var total_experience_reward := 0
+
+	for lethal_target in lethal_targets:
+		total_experience_reward += lethal_target.get("experience_reward")
+
+	var gold_pickups_before := _count_nodes_with_script(sandbox, GoldPickupScript)
+	flame_nova_skill.set("time_until_ready", 0.0)
+	autocast_skill_slots.call("update_autocast_skills", 0.0)
+	_check(
+		lethal_targets[0].get("death_processed")
+		and lethal_targets[1].get("death_processed"),
+		"One Flame Nova can safely kill multiple enemies"
+	)
+	_check(
+		experience.get("current_experience") == experience_before + total_experience_reward,
+		"Multiple Flame Nova kills award the expected XP exactly once"
+	)
+	_check(
+		_count_nodes_with_script(sandbox, GoldPickupScript) == gold_pickups_before + 2,
+		"Multiple Flame Nova kills each use the shared loot path"
+	)
+
+	var experience_after_deaths: int = experience.get("current_experience")
+	var gold_pickups_after_deaths := _count_nodes_with_script(sandbox, GoldPickupScript)
+
+	for lethal_target in lethal_targets:
+		lethal_target.call("_on_health_depleted")
+
+	_check(
+		experience.get("current_experience") == experience_after_deaths
+		and _count_nodes_with_script(sandbox, GoldPickupScript) == gold_pickups_after_deaths,
+		"Repeated depletion cannot duplicate Flame Nova rewards"
+	)
+
+	for visual in get_nodes_in_group("flame_nova_visual"):
+		visual.queue_free()
+
+	await process_frame
+
+
 func _test_combat_and_rewards(
 	sandbox: Node2D,
 	player: CharacterBody2D,
@@ -742,6 +1029,11 @@ func _test_save_compatibility(player: CharacterBody2D) -> void:
 	_check(save_coordinator.has_method("apply_player_data"), "SaveCoordinator owns payload restoration")
 
 	var state_before_failure: Dictionary = save_coordinator.call("build_current_player_data")
+	_check(
+		not state_before_failure.has("passive_skills")
+		and not state_before_failure.has("autocast_timer"),
+		"Prototype passive slot and internal timer do not change the save schema"
+	)
 	var missing_result: Dictionary = save_coordinator.call("load_progression")
 	_check(not missing_result.get("success", false), "Missing save is rejected safely")
 	_check(missing_result.get("message", "") == "No Save Found", "Missing save feedback is preserved")
@@ -831,6 +1123,10 @@ func _test_save_compatibility(player: CharacterBody2D) -> void:
 	_check(derived_stats.get("autoattack_damage") == 13, "Strength and equipment recalculate autoattack damage after load")
 	_check(derived_stats.get("fireball_damage") == 28, "Intelligence and equipment recalculate Fireball damage after load")
 	_check(derived_stats.get("lightning_arc_damage") == 24, "Intelligence recalculates Lightning Arc damage after load")
+	_check(
+		player.get_node("AutocastSkillSlots/FlameNovaSkill").get("damage") == 30,
+		"Intelligence recalculates Flame Nova damage after load"
+	)
 	_check(derived_stats.get("max_health") == 115, "Vitality and equipment recalculate max HP after load")
 
 	var unknown_item_data: Dictionary = full_data.duplicate(true)

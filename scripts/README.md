@@ -9,6 +9,9 @@
 - `fireball_skill.gd` / projectile scripts: Fireball runtime and projectile path.
 - `lightning_arc_skill.gd`: immediate nearest-target hit, one chain target and
   lightweight line feedback for the second active skill.
+- `autocast_skill_slots.gd`: equipped passive/autocast runtime collection and
+  update boundary owned by the player scene.
+- `flame_nova_skill.gd`: ready-when-needed player-centered autocast AoE runtime.
 - `experience.gd` / `attributes.gd`: progression and allocated attributes.
 - `equipment_item_data.gd`: static Resource definition for equipment.
 - `item_catalog.gd`: stable-ID lookup, duplicate validation and default drop pool.

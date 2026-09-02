@@ -24,6 +24,7 @@ const SECONDARY_SKILL_SLOT_INDEX: int = 1
 @onready var save_status_label: Label = $HUD/SaveStatusLabel
 @onready var fireball_skill = $FireballSkill
 @onready var lightning_arc_skill = $LightningArcSkill
+@onready var autocast_skill_slots = $AutocastSkillSlots
 @onready var attribute_panel = $HUD/AttributePanel
 @onready var equipment_panel = $HUD/EquipmentPanel
 @onready var inventory_panel = $HUD/InventoryPanel
@@ -377,6 +378,8 @@ func apply_attribute_effects() -> void:
 	for skill in skill_slots:
 		if is_instance_valid(skill) and skill.has_method("apply_intelligence_bonus"):
 			skill.call("apply_intelligence_bonus", intelligence_bonus)
+
+	autocast_skill_slots.call("apply_intelligence_bonus", intelligence_bonus)
 
 
 func update_equipment_attribute_bonuses() -> void:

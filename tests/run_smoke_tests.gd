@@ -152,14 +152,26 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 	_check(player_components_exist, "Player contains all core progression components")
 
 	_check(player.has_method("try_autoattack"), "Player autoattack path exists")
-	_check(player.has_method("try_fireball"), "Player Fireball path exists")
+	_check(player.has_method("activate_skill"), "Player generic skill-slot activation exists")
+	_check(player.has_method("get_skill_in_slot"), "Player generic skill-slot lookup exists")
+	_check(not player.has_method("try_fireball"), "Player has no duplicate Fireball-specific activation method")
 	_check(player.has_method("get_movement_input"), "Player movement input path exists")
 	_check(player.has_method("save_progression") and player.has_method("load_progression"), "Player save/load command entry points exist")
 	_check(not player.has_method("get_progression_save_data"), "Player no longer builds the save payload")
 	_check(not player.has_method("apply_progression_save_data"), "Player no longer restores the save payload")
 	_check(InputMap.has_action("move_left") and InputMap.has_action("move_right"), "Movement input actions exist")
-	_check(InputMap.has_action("fireball"), "Fireball input action exists")
+	_check(InputMap.has_action("skill_slot_1"), "Generic first skill-slot input action exists")
+	_check(not InputMap.has_action("fireball"), "Legacy Fireball-specific input action is removed")
 	_check(InputMap.has_action("save_game") and InputMap.has_action("load_game"), "K/L save and load actions exist")
+
+	var space_uses_first_slot := false
+
+	for input_event in InputMap.action_get_events("skill_slot_1"):
+		if input_event is InputEventKey and input_event.physical_keycode == KEY_SPACE:
+			space_uses_first_slot = true
+			break
+
+	_check(space_uses_first_slot, "Space maps to the generic first skill slot")
 
 	var starting_position: Vector2 = player.global_position
 	player.call("_on_mobile_movement_changed", Vector2.RIGHT)
@@ -167,32 +179,78 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 	_check(player.global_position.x > starting_position.x, "Mobile movement feeds CharacterBody2D movement")
 	player.call("_on_mobile_movement_changed", Vector2.ZERO)
 
+	var fireball_skill := player.get_node("FireballSkill")
+	_check(
+		player.call("get_skill_in_slot", 0) == fireball_skill,
+		"Fireball runtime is assigned to skill slot 0"
+	)
+	_check(player.call("get_skill_in_slot", 1) == null, "Unassigned skill slots fail safely")
+	_check(fireball_skill.has_method("try_activate"), "Assigned Fireball runtime owns activation")
+
 	var fireballs_before := _count_nodes_with_script(sandbox, FireballProjectileScript)
 	player.set("facing_direction", Vector2.RIGHT)
-	player.get_node("FireballSkill").set("cooldown_remaining", 0.0)
-	_check(player.call("try_fireball"), "Fireball activation succeeds")
+	fireball_skill.set("cooldown_remaining", 0.0)
+	_check(player.call("activate_skill", 0, Vector2.RIGHT), "Generic slot activation succeeds")
 	_check(
 		_count_nodes_with_script(sandbox, FireballProjectileScript) == fireballs_before + 1,
-		"Fireball activation creates the projectile"
+		"Generic slot activation creates the Fireball projectile"
+	)
+	_check(
+		not player.call("activate_skill", 0, Vector2.RIGHT),
+		"Fireball cooldown still blocks immediate slot reactivation"
+	)
+	_check(
+		_count_nodes_with_script(sandbox, FireballProjectileScript) == fireballs_before + 1,
+		"Blocked cooldown activation does not create another projectile"
 	)
 
 	for child in sandbox.get_children():
 		if child.get_script() == FireballProjectileScript:
 			child.queue_free()
 
+	await process_frame
+	fireball_skill.set("cooldown_remaining", 0.0)
+	fireballs_before = _count_nodes_with_script(sandbox, FireballProjectileScript)
+	Input.action_press("skill_slot_1")
+	player.call("_physics_process", 0.0)
+	Input.action_release("skill_slot_1")
+	_check(
+		_count_nodes_with_script(sandbox, FireballProjectileScript) == fireballs_before + 1,
+		"Space action activates Fireball through skill slot 0"
+	)
+
+	for child in sandbox.get_children():
+		if child.get_script() == FireballProjectileScript:
+			child.queue_free()
+
+	await process_frame
+
 	var hud := player.get_node_or_null("HUD")
 	var mobile_controls := player.get_node_or_null("HUD/MobileControls")
 	_check(hud is CanvasLayer, "Player HUD stays on a CanvasLayer")
 	_check(mobile_controls != null, "Mobile controls are reachable")
 	_check(mobile_controls.has_signal("movement_changed"), "Mobile joystick signal exists")
-	_check(mobile_controls.has_signal("fireball_requested"), "Mobile Fireball signal exists")
+	_check(mobile_controls.has_signal("skill_slot_requested"), "Mobile generic skill-slot signal exists")
+	_check(not mobile_controls.has_signal("fireball_requested"), "Mobile controls have no Fireball-specific signal")
 	_check(
 		mobile_controls.is_connected(
-			"fireball_requested",
-			Callable(player, "_on_mobile_fireball_requested")
+			"skill_slot_requested",
+			Callable(player, "_on_mobile_skill_slot_requested")
 		),
-		"Mobile Fireball button uses the player Fireball path"
+		"Mobile skill request uses the player generic slot path"
 	)
+
+	fireball_skill.set("cooldown_remaining", 0.0)
+	fireballs_before = _count_nodes_with_script(sandbox, FireballProjectileScript)
+	mobile_controls.get_node("FireballButton").emit_signal("pressed")
+	_check(
+		_count_nodes_with_script(sandbox, FireballProjectileScript) == fireballs_before + 1,
+		"Mobile Fireball button activates Fireball through skill slot 0"
+	)
+
+	for child in sandbox.get_children():
+		if child.get_script() == FireballProjectileScript:
+			child.queue_free()
 
 	var character_panels_exist := true
 
@@ -333,7 +391,10 @@ func _test_combat_and_rewards(
 	var heavy_health_before: int = heavy_health.get("current_health")
 	player.get_node("FireballSkill").set("cooldown_remaining", 0.0)
 	player.set("facing_direction", Vector2.RIGHT)
-	_check(player.call("try_fireball"), "Fireball can be activated for hit regression")
+	_check(
+		player.call("activate_skill", 0, Vector2.RIGHT),
+		"Fireball can be activated through its slot for hit regression"
+	)
 	var fireball := _find_last_node_with_script(sandbox, FireballProjectileScript) as CharacterBody2D
 	_check(fireball != null, "Fireball projectile is available for collision regression")
 

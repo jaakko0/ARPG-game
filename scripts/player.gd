@@ -1,6 +1,7 @@
 extends CharacterBody2D
 
 const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
+const PRIMARY_SKILL_SLOT_INDEX: int = 0
 
 @export var move_speed: float = 240.0
 @export var attack_damage: int = 10
@@ -39,10 +40,12 @@ var save_status_remaining: float = 0.0
 var mobile_movement_input: Vector2 = Vector2.ZERO
 var is_loading_progression: bool = false
 var character_management_open: bool = false
+var skill_slots: Array[Node] = []
 
 
 func _ready() -> void:
 	starting_position = global_position
+	skill_slots.append(fireball_skill)
 	base_attack_damage = attack_damage
 	base_max_health = health.max_health
 	base_fireball_damage = fireball_skill.damage
@@ -82,8 +85,8 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	try_autoattack()
 
-	if Input.is_action_just_pressed("fireball"):
-		try_fireball()
+	if Input.is_action_just_pressed("skill_slot_1"):
+		activate_skill(PRIMARY_SKILL_SLOT_INDEX, facing_direction)
 
 	if Input.is_action_just_pressed("save_game"):
 		save_progression()
@@ -103,16 +106,33 @@ func get_movement_input() -> Vector2:
 	return (keyboard_input + mobile_movement_input).limit_length(1.0)
 
 
-func try_fireball() -> bool:
-	return fireball_skill.try_activate(global_position, facing_direction)
+func get_skill_in_slot(slot_index: int) -> Node:
+	if slot_index < 0 or slot_index >= skill_slots.size():
+		return null
+
+	var skill := skill_slots[slot_index]
+
+	if not is_instance_valid(skill):
+		return null
+
+	return skill
+
+
+func activate_skill(slot_index: int, aim_direction: Vector2) -> bool:
+	var skill := get_skill_in_slot(slot_index)
+
+	if skill == null or not skill.has_method("try_activate"):
+		return false
+
+	return bool(skill.call("try_activate", global_position, aim_direction))
 
 
 func _on_mobile_movement_changed(direction: Vector2) -> void:
 	mobile_movement_input = direction.limit_length(1.0)
 
 
-func _on_mobile_fireball_requested() -> void:
-	try_fireball()
+func _on_mobile_skill_slot_requested(slot_index: int) -> void:
+	activate_skill(slot_index, facing_direction)
 
 
 func _on_character_menu_button_pressed() -> void:

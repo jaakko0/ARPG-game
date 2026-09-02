@@ -6,7 +6,7 @@
 - `enemy.gd`: shared chase, contact attack, death, loot and XP behaviour.
 - `ranged_enemy.gd`: ranged distance management on top of `enemy.gd`.
 - `area_attack.gd` / `ranged_attack.gd`: separate reusable special attacks.
-- `fireball_skill.gd` / projectile scripts: current active skill/projectile paths.
+- `fireball_skill.gd` / projectile scripts: current active skill runtime and projectile path.
 - `experience.gd` / `attributes.gd`: progression and allocated attributes.
 - `equipment_item_data.gd`: static Resource definition for equipment.
 - `item_catalog.gd`: stable-ID lookup, duplicate validation and default drop pool.
@@ -18,5 +18,6 @@
 - `save_system.gd`: JSON/file persistence, top-level version dispatch and safe
   temporary-file replacement with one backup.
 
-Gameplay state belongs in components rather than UI scripts. Input adapters should
-call existing gameplay methods rather than duplicate gameplay logic.
+Gameplay state belongs in components rather than UI scripts. Keyboard and mobile
+input request generic player skill slots; each assigned skill runtime owns its
+activation rules, cooldown and effect spawning.

@@ -3,23 +3,28 @@ extends Control
 signal movement_changed(direction: Vector2)
 signal skill_slot_requested(slot_index: int)
 
-@export var skill_button_slot_index: int = 0
-
 @onready var joystick: Control = $VirtualJoystick
-@onready var skill_button: Button = $FireballButton
+@onready var skill_buttons: Array[Button] = [
+	$FireballButton,
+	$LightningArcButton,
+]
 
 
 func _ready() -> void:
 	joystick.connect("direction_changed", _on_joystick_direction_changed)
-	skill_button.pressed.connect(_on_skill_button_pressed)
+
+	for slot_index in range(skill_buttons.size()):
+		skill_buttons[slot_index].pressed.connect(
+			_on_skill_button_pressed.bind(slot_index)
+		)
 
 
 func _on_joystick_direction_changed(direction: Vector2) -> void:
 	movement_changed.emit(direction)
 
 
-func _on_skill_button_pressed() -> void:
-	skill_slot_requested.emit(skill_button_slot_index)
+func _on_skill_button_pressed(slot_index: int) -> void:
+	skill_slot_requested.emit(slot_index)
 
 
 func reset_movement() -> void:

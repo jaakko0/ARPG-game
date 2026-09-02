@@ -46,3 +46,25 @@ theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 28
 text = "Fireball"
 modulate = Color(1, 0.48, 0.25, 0.9)
+
+[node name="LightningArcButton" type="Button" parent="."]
+custom_minimum_size = Vector2(180, 180)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -220.0
+offset_top = -420.0
+offset_right = -40.0
+offset_bottom = -240.0
+grow_horizontal = 0
+grow_vertical = 0
+focus_mode = 0
+theme_override_colors/font_color = Color(0.88, 0.98, 1, 1)
+theme_override_colors/font_outline_color = Color(0.01, 0.08, 0.2, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 24
+text = "Lightning\nArc"
+modulate = Color(0.3, 0.72, 1, 0.9)

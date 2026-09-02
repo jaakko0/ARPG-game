@@ -5,12 +5,22 @@ extends Node
 @export var projectile_speed: float = 520.0
 @export var projectile_spawn_distance: float = 44.0
 @export_range(0.1, 30.0, 0.1) var cooldown: float = 2.0
+@export var intelligence_damage_per_point: int = 2
 
 var cooldown_remaining: float = 0.0
+var base_damage: int
+
+
+func _ready() -> void:
+	base_damage = damage
 
 
 func _physics_process(delta: float) -> void:
 	cooldown_remaining = maxf(cooldown_remaining - delta, 0.0)
+
+
+func apply_intelligence_bonus(attribute_bonus: int) -> void:
+	damage = base_damage + maxi(attribute_bonus, 0) * intelligence_damage_per_point
 
 
 func try_activate(source_position: Vector2, direction: Vector2) -> bool:

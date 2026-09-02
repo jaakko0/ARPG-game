@@ -82,6 +82,7 @@ func _run_suite() -> void:
 	var enemies := await _test_enemy_variants(sandbox)
 
 	if player != null and not enemies.is_empty():
+		await _test_lightning_arc(sandbox, player, enemies)
 		await _test_combat_and_rewards(sandbox, player, enemies)
 		_test_progression(player)
 		_test_item_catalog_and_equipment(player, enemies)
@@ -155,13 +156,16 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 	_check(player.has_method("activate_skill"), "Player generic skill-slot activation exists")
 	_check(player.has_method("get_skill_in_slot"), "Player generic skill-slot lookup exists")
 	_check(not player.has_method("try_fireball"), "Player has no duplicate Fireball-specific activation method")
+	_check(not player.has_method("try_lightning_arc"), "Player has no Lightning-specific activation method")
 	_check(player.has_method("get_movement_input"), "Player movement input path exists")
 	_check(player.has_method("save_progression") and player.has_method("load_progression"), "Player save/load command entry points exist")
 	_check(not player.has_method("get_progression_save_data"), "Player no longer builds the save payload")
 	_check(not player.has_method("apply_progression_save_data"), "Player no longer restores the save payload")
 	_check(InputMap.has_action("move_left") and InputMap.has_action("move_right"), "Movement input actions exist")
 	_check(InputMap.has_action("skill_slot_1"), "Generic first skill-slot input action exists")
+	_check(InputMap.has_action("skill_slot_2"), "Generic second skill-slot input action exists")
 	_check(not InputMap.has_action("fireball"), "Legacy Fireball-specific input action is removed")
+	_check(not InputMap.has_action("lightning_arc"), "No Lightning-specific input action exists")
 	_check(InputMap.has_action("save_game") and InputMap.has_action("load_game"), "K/L save and load actions exist")
 
 	var space_uses_first_slot := false
@@ -173,6 +177,15 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 
 	_check(space_uses_first_slot, "Space maps to the generic first skill slot")
 
+	var q_uses_second_slot := false
+
+	for input_event in InputMap.action_get_events("skill_slot_2"):
+		if input_event is InputEventKey and input_event.physical_keycode == KEY_Q:
+			q_uses_second_slot = true
+			break
+
+	_check(q_uses_second_slot, "Q maps to the generic second skill slot")
+
 	var starting_position: Vector2 = player.global_position
 	player.call("_on_mobile_movement_changed", Vector2.RIGHT)
 	player.call("_physics_process", 0.1)
@@ -180,12 +193,27 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 	player.call("_on_mobile_movement_changed", Vector2.ZERO)
 
 	var fireball_skill := player.get_node("FireballSkill")
+	var lightning_arc_skill := player.get_node("LightningArcSkill")
 	_check(
 		player.call("get_skill_in_slot", 0) == fireball_skill,
 		"Fireball runtime is assigned to skill slot 0"
 	)
-	_check(player.call("get_skill_in_slot", 1) == null, "Unassigned skill slots fail safely")
+	_check(
+		player.call("get_skill_in_slot", 1) == lightning_arc_skill,
+		"Lightning Arc runtime is assigned to skill slot 1"
+	)
+	_check(player.call("get_skill_in_slot", 2) == null, "Unassigned skill slots fail safely")
 	_check(fireball_skill.has_method("try_activate"), "Assigned Fireball runtime owns activation")
+	_check(lightning_arc_skill.has_method("try_activate"), "Assigned Lightning Arc runtime owns activation")
+	lightning_arc_skill.set("cooldown_remaining", 0.0)
+	_check(
+		not player.call("activate_skill", 1, Vector2.RIGHT),
+		"Lightning Arc safely declines activation with no target"
+	)
+	_check(
+		is_zero_approx(lightning_arc_skill.get("cooldown_remaining")),
+		"No-target Lightning Arc does not consume cooldown"
+	)
 
 	var fireballs_before := _count_nodes_with_script(sandbox, FireballProjectileScript)
 	player.set("facing_direction", Vector2.RIGHT)
@@ -232,12 +260,20 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 	_check(mobile_controls.has_signal("movement_changed"), "Mobile joystick signal exists")
 	_check(mobile_controls.has_signal("skill_slot_requested"), "Mobile generic skill-slot signal exists")
 	_check(not mobile_controls.has_signal("fireball_requested"), "Mobile controls have no Fireball-specific signal")
+	_check(not mobile_controls.has_signal("lightning_arc_requested"), "Mobile controls have no Lightning-specific signal")
 	_check(
 		mobile_controls.is_connected(
 			"skill_slot_requested",
 			Callable(player, "_on_mobile_skill_slot_requested")
 		),
 		"Mobile skill request uses the player generic slot path"
+	)
+
+	var requested_skill_slots: Array[int] = []
+	mobile_controls.connect(
+		"skill_slot_requested",
+		func(slot_index: int) -> void:
+			requested_skill_slots.append(slot_index)
 	)
 
 	fireball_skill.set("cooldown_remaining", 0.0)
@@ -247,6 +283,26 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 		_count_nodes_with_script(sandbox, FireballProjectileScript) == fireballs_before + 1,
 		"Mobile Fireball button activates Fireball through skill slot 0"
 	)
+	_check(requested_skill_slots.back() == 0, "Mobile Fireball button requests generic slot 0")
+
+	var lightning_button := mobile_controls.get_node_or_null("LightningArcButton") as Button
+	_check(lightning_button != null, "Mobile Lightning Arc button exists")
+
+	if lightning_button != null:
+		lightning_button.emit_signal("pressed")
+		_check(requested_skill_slots.back() == 1, "Mobile Lightning Arc button requests generic slot 1")
+		_check(
+			not lightning_button.get_global_rect().intersects(
+				mobile_controls.get_node("FireballButton").get_global_rect()
+			),
+			"Mobile skill buttons do not overlap"
+		)
+		_check(
+			not lightning_button.get_global_rect().intersects(
+				mobile_controls.get_node("VirtualJoystick").get_global_rect()
+			),
+			"Lightning Arc button does not overlap the joystick"
+		)
 
 	for child in sandbox.get_children():
 		if child.get_script() == FireballProjectileScript:
@@ -359,6 +415,152 @@ func _test_enemy_variants(sandbox: Node2D) -> Array[CharacterBody2D]:
 			projectile.queue_free()
 
 	return enemies
+
+
+func _test_lightning_arc(
+	sandbox: Node2D,
+	player: CharacterBody2D,
+	enemies: Array[CharacterBody2D]
+) -> void:
+	var basic := _find_enemy_by_name(enemies, "Enemy")
+	var fast := _find_enemy_by_name(enemies, "FastEnemy")
+	var heavy := _find_enemy_by_name(enemies, "HeavyEnemy")
+	var fireball_skill := player.get_node("FireballSkill")
+	var lightning_arc_skill := player.get_node("LightningArcSkill")
+
+	if basic == null or fast == null or heavy == null:
+		_check(false, "Lightning Arc test targets are available")
+		return
+
+	for enemy in enemies:
+		enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+		enemy.get_node("Health").call("restore_full")
+
+	basic.global_position = player.global_position + Vector2(120.0, 0.0)
+	fast.global_position = player.global_position + Vector2(200.0, 0.0)
+	heavy.global_position = player.global_position + Vector2(290.0, 0.0)
+
+	var basic_health := basic.get_node("Health")
+	var fast_health := fast.get_node("Health")
+	var heavy_health := heavy.get_node("Health")
+	var basic_health_before: int = basic_health.get("current_health")
+	var fast_health_before: int = fast_health.get("current_health")
+	var heavy_health_before: int = heavy_health.get("current_health")
+	var first_damage: int = lightning_arc_skill.get("damage")
+	var chain_damage: int = lightning_arc_skill.call("get_chain_damage")
+	var visuals_before := get_nodes_in_group("lightning_arc_visual").size()
+
+	lightning_arc_skill.set("cooldown_remaining", 0.0)
+	fireball_skill.set("cooldown_remaining", 0.0)
+	_check(
+		player.call("activate_skill", 1, Vector2.LEFT),
+		"Lightning Arc activates through generic skill slot 1"
+	)
+	_check(
+		basic_health.get("current_health") == basic_health_before - first_damage,
+		"Lightning Arc selects and damages the nearest first target exactly once"
+	)
+	_check(
+		fast_health.get("current_health") == fast_health_before - chain_damage,
+		"Lightning Arc chains to the nearest different enemy"
+	)
+	_check(
+		heavy_health.get("current_health") == heavy_health_before,
+		"Lightning Arc stops after one additional chain target"
+	)
+	_check(
+		get_nodes_in_group("lightning_arc_visual").size() == visuals_before + 1,
+		"Lightning Arc creates one lightweight visual per cast"
+	)
+
+	var chain_visual := get_nodes_in_group("lightning_arc_visual").back() as Line2D
+	_check(chain_visual != null and chain_visual.points.size() == 9, "Lightning visual shows both hit segments")
+	_check(lightning_arc_skill.get("cooldown_remaining") > 0.0, "Lightning Arc starts its own cooldown")
+	_check(is_zero_approx(fireball_skill.get("cooldown_remaining")), "Lightning Arc does not start Fireball cooldown")
+	_check(
+		not player.call("activate_skill", 1, Vector2.RIGHT),
+		"Lightning Arc cooldown blocks immediate reactivation"
+	)
+
+	for enemy in [basic, fast, heavy]:
+		enemy.get_node("Health").call("restore_full")
+
+	lightning_arc_skill.set("cooldown_remaining", 0.0)
+	var q_target_health_before: int = basic_health.get("current_health")
+	Input.action_press("skill_slot_2")
+	player.call("_physics_process", 0.0)
+	Input.action_release("skill_slot_2")
+	_check(
+		basic_health.get("current_health") == q_target_health_before - first_damage,
+		"Q activates Lightning Arc through generic skill slot 1"
+	)
+
+	for enemy in [basic, fast, heavy]:
+		enemy.get_node("Health").call("restore_full")
+
+	lightning_arc_skill.set("cooldown_remaining", 0.0)
+	var mobile_target_health_before: int = basic_health.get("current_health")
+	player.get_node("HUD/MobileControls/LightningArcButton").emit_signal("pressed")
+	_check(
+		basic_health.get("current_health") == mobile_target_health_before - first_damage,
+		"Mobile Lightning Arc button activates generic skill slot 1"
+	)
+
+	for enemy in enemies:
+		enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+		enemy.get_node("Health").call("restore_full")
+
+	lightning_arc_skill.set("cooldown_remaining", 0.0)
+	fireball_skill.set("cooldown_remaining", 0.0)
+	var fireballs_before := _count_nodes_with_script(sandbox, FireballProjectileScript)
+	_check(player.call("activate_skill", 0, Vector2.RIGHT), "Fireball still activates through skill slot 0")
+	_check(
+		_count_nodes_with_script(sandbox, FireballProjectileScript) == fireballs_before + 1,
+		"Fireball regression still creates its projectile"
+	)
+	_check(fireball_skill.get("cooldown_remaining") > 0.0, "Fireball starts its own cooldown")
+	_check(is_zero_approx(lightning_arc_skill.get("cooldown_remaining")), "Fireball does not start Lightning Arc cooldown")
+
+	for child in sandbox.get_children():
+		if child.get_script() == FireballProjectileScript:
+			child.queue_free()
+
+	var enemy_scene := load("res://scenes/enemy.tscn") as PackedScene
+	var lethal_target := enemy_scene.instantiate() as CharacterBody2D
+	sandbox.add_child(lethal_target)
+	lethal_target.global_position = player.global_position + Vector2(120.0, 0.0)
+	lethal_target.set_physics_process(false)
+	lethal_target.get_node("LootDropper").set("equipment_drop_chance", 0.0)
+	var lethal_health := lethal_target.get_node("Health")
+	lethal_health.call("take_damage", lethal_health.get("current_health") - 1)
+	var experience := player.get_node("Experience")
+	var experience_before: int = experience.get("current_experience")
+	var gold_pickups_before := _count_nodes_with_script(sandbox, GoldPickupScript)
+	lightning_arc_skill.set("cooldown_remaining", 0.0)
+	_check(player.call("activate_skill", 1, Vector2.RIGHT), "Lightning Arc can kill its first target")
+	_check(lethal_target.get("death_processed"), "Lightning Arc death uses the shared enemy death path")
+	_check(
+		experience.get("current_experience") == experience_before + lethal_target.get("experience_reward"),
+		"Lightning Arc kill awards XP exactly once"
+	)
+	_check(
+		_count_nodes_with_script(sandbox, GoldPickupScript) == gold_pickups_before + 1,
+		"Lightning Arc kill creates loot through the shared drop path"
+	)
+
+	var experience_after_death: int = experience.get("current_experience")
+	var gold_pickups_after_death := _count_nodes_with_script(sandbox, GoldPickupScript)
+	lethal_target.call("_on_health_depleted")
+	_check(
+		experience.get("current_experience") == experience_after_death
+		and _count_nodes_with_script(sandbox, GoldPickupScript) == gold_pickups_after_death,
+		"Repeated depletion cannot duplicate Lightning Arc kill rewards"
+	)
+
+	for visual in get_nodes_in_group("lightning_arc_visual"):
+		visual.queue_free()
+
+	await process_frame
 
 
 func _test_combat_and_rewards(
@@ -628,6 +830,7 @@ func _test_save_compatibility(player: CharacterBody2D) -> void:
 	var derived_stats: Dictionary = player.call("get_derived_stats_debug_data")
 	_check(derived_stats.get("autoattack_damage") == 13, "Strength and equipment recalculate autoattack damage after load")
 	_check(derived_stats.get("fireball_damage") == 28, "Intelligence and equipment recalculate Fireball damage after load")
+	_check(derived_stats.get("lightning_arc_damage") == 24, "Intelligence recalculates Lightning Arc damage after load")
 	_check(derived_stats.get("max_health") == 115, "Vitality and equipment recalculate max HP after load")
 
 	var unknown_item_data: Dictionary = full_data.duplicate(true)

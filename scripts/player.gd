@@ -2,6 +2,7 @@ extends CharacterBody2D
 
 const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
 const PRIMARY_SKILL_SLOT_INDEX: int = 0
+const SECONDARY_SKILL_SLOT_INDEX: int = 1
 
 @export var move_speed: float = 240.0
 @export var attack_damage: int = 10
@@ -22,6 +23,7 @@ const PRIMARY_SKILL_SLOT_INDEX: int = 0
 @onready var experience_label: Label = $HUD/ExperienceLabel
 @onready var save_status_label: Label = $HUD/SaveStatusLabel
 @onready var fireball_skill = $FireballSkill
+@onready var lightning_arc_skill = $LightningArcSkill
 @onready var attribute_panel = $HUD/AttributePanel
 @onready var equipment_panel = $HUD/EquipmentPanel
 @onready var inventory_panel = $HUD/InventoryPanel
@@ -35,7 +37,6 @@ var attack_cooldown_remaining: float = 0.0
 var gold: int = 0
 var base_attack_damage: int
 var base_max_health: int
-var base_fireball_damage: int
 var save_status_remaining: float = 0.0
 var mobile_movement_input: Vector2 = Vector2.ZERO
 var is_loading_progression: bool = false
@@ -46,9 +47,9 @@ var skill_slots: Array[Node] = []
 func _ready() -> void:
 	starting_position = global_position
 	skill_slots.append(fireball_skill)
+	skill_slots.append(lightning_arc_skill)
 	base_attack_damage = attack_damage
 	base_max_health = health.max_health
-	base_fireball_damage = fireball_skill.damage
 	save_coordinator.setup(self, save_system, experience, attributes, inventory, equipment)
 	health.health_changed.connect(_on_health_changed)
 	health.depleted.connect(_on_health_depleted)
@@ -87,6 +88,8 @@ func _physics_process(delta: float) -> void:
 
 	if Input.is_action_just_pressed("skill_slot_1"):
 		activate_skill(PRIMARY_SKILL_SLOT_INDEX, facing_direction)
+	if Input.is_action_just_pressed("skill_slot_2"):
+		activate_skill(SECONDARY_SKILL_SLOT_INDEX, facing_direction)
 
 	if Input.is_action_just_pressed("save_game"):
 		save_progression()
@@ -368,9 +371,12 @@ func apply_attribute_effects() -> void:
 	health.set_max_health(
 		base_max_health + attributes.get_effective_bonus(&"vitality") * 5
 	)
-	fireball_skill.damage = (
-		base_fireball_damage + attributes.get_effective_bonus(&"intelligence") * 2
-	)
+
+	var intelligence_bonus: int = attributes.get_effective_bonus(&"intelligence")
+
+	for skill in skill_slots:
+		if is_instance_valid(skill) and skill.has_method("apply_intelligence_bonus"):
+			skill.call("apply_intelligence_bonus", intelligence_bonus)
 
 
 func update_equipment_attribute_bonuses() -> void:
@@ -386,6 +392,7 @@ func get_derived_stats_debug_data() -> Dictionary:
 	return {
 		"autoattack_damage": attack_damage,
 		"fireball_damage": fireball_skill.damage,
+		"lightning_arc_damage": lightning_arc_skill.damage,
 		"max_health": health.max_health,
 	}
 

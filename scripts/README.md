@@ -6,7 +6,9 @@
 - `enemy.gd`: shared chase, contact attack, death, loot and XP behaviour.
 - `ranged_enemy.gd`: ranged distance management on top of `enemy.gd`.
 - `area_attack.gd` / `ranged_attack.gd`: separate reusable special attacks.
-- `fireball_skill.gd` / projectile scripts: current active skill runtime and projectile path.
+- `fireball_skill.gd` / projectile scripts: Fireball runtime and projectile path.
+- `lightning_arc_skill.gd`: immediate nearest-target hit, one chain target and
+  lightweight line feedback for the second active skill.
 - `experience.gd` / `attributes.gd`: progression and allocated attributes.
 - `equipment_item_data.gd`: static Resource definition for equipment.
 - `item_catalog.gd`: stable-ID lookup, duplicate validation and default drop pool.

@@ -103,6 +103,8 @@ in the GDD are not implemented unless they are listed above.
   inherit it and override only variant data or add a special attack.
 - `AreaAttack` and `RangedAttack` remain separate reusable behaviours.
 - Keyboard and mobile controls call the same player gameplay methods.
+- `SaveCoordinator` gathers, validates and restores gameplay state from its owning
+  components. `SaveSystem` handles JSON, versioning and safe file replacement.
 - New systems should be kept in focused components instead of adding unrelated
   responsibilities to `player.gd`.
 

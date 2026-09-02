@@ -2,19 +2,27 @@ extends Node
 
 const CURRENT_SAVE_VERSION: int = 1
 const DEFAULT_SAVE_PATH: String = "user://savegame.json"
+const TEMP_FILE_SUFFIX: String = ".tmp"
+const BACKUP_FILE_SUFFIX: String = ".bak"
 
 @export var save_path: String = DEFAULT_SAVE_PATH
 
 
 func save_game(player_data: Dictionary) -> Dictionary:
-	if not _is_valid_player_data(player_data):
+	if player_data.is_empty():
 		return _failure("Save Failed: Invalid Progression")
 
 	var save_data := {
 		"save_version": CURRENT_SAVE_VERSION,
 		"player": player_data,
 	}
-	var file := FileAccess.open(save_path, FileAccess.WRITE)
+	var temp_path := save_path + TEMP_FILE_SUFFIX
+	var backup_path := save_path + BACKUP_FILE_SUFFIX
+
+	if not _remove_file_if_present(temp_path):
+		return _failure("Save Failed")
+
+	var file := FileAccess.open(temp_path, FileAccess.WRITE)
 
 	if file == null:
 		return _failure("Save Failed")
@@ -25,6 +33,25 @@ func save_game(player_data: Dictionary) -> Dictionary:
 	file.close()
 
 	if write_error != OK:
+		_remove_file_if_present(temp_path)
+		return _failure("Save Failed")
+
+	var active_save_existed := FileAccess.file_exists(save_path)
+
+	if active_save_existed:
+		if not _remove_file_if_present(backup_path):
+			_remove_file_if_present(temp_path)
+			return _failure("Save Failed")
+
+		if not _rename_file(save_path, backup_path):
+			_remove_file_if_present(temp_path)
+			return _failure("Save Failed")
+
+	if not _rename_file(temp_path, save_path):
+		if active_save_existed:
+			_rename_file(backup_path, save_path)
+
+		_remove_file_if_present(temp_path)
 		return _failure("Save Failed")
 
 	return {
@@ -58,16 +85,23 @@ func load_game() -> Dictionary:
 	if not save_data.has("save_version") or not _is_number(save_data["save_version"]):
 		return _failure("Load Failed: Invalid Save")
 
-	if int(save_data["save_version"]) != CURRENT_SAVE_VERSION:
-		return _failure("Load Failed: Unsupported Save")
+	var version_result := _dispatch_save_version(save_data)
 
-	if not save_data.has("player") or not _is_valid_player_data(save_data["player"]):
+	if not version_result.get("success", false):
+		return version_result
+
+	var current_save_data: Dictionary = version_result.get("save_data", {})
+
+	if (
+		not current_save_data.has("player")
+		or typeof(current_save_data["player"]) != TYPE_DICTIONARY
+	):
 		return _failure("Load Failed: Invalid Save")
 
 	return {
 		"success": true,
 		"message": "Game Loaded",
-		"player_data": save_data["player"],
+		"player_data": current_save_data["player"],
 	}
 
 
@@ -75,70 +109,35 @@ func get_absolute_save_path() -> String:
 	return ProjectSettings.globalize_path(save_path)
 
 
-func _is_valid_player_data(player_data: Variant) -> bool:
-	if typeof(player_data) != TYPE_DICTIONARY:
-		return false
+func _dispatch_save_version(save_data: Dictionary) -> Dictionary:
+	var save_version := int(save_data["save_version"])
 
-	for key in ["level", "current_xp", "gold"]:
-		if not player_data.has(key) or not _is_number(player_data[key]):
-			return false
+	match save_version:
+		CURRENT_SAVE_VERSION:
+			return {
+				"success": true,
+				"save_data": save_data,
+			}
+		_:
+			return _failure("Load Failed: Unsupported Save")
 
-	if int(player_data["level"]) < 1:
-		return false
 
-	if int(player_data["current_xp"]) < 0 or int(player_data["gold"]) < 0:
-		return false
+# When CURRENT_SAVE_VERSION increases, add the real v1 -> v2 migration here and
+# call it from _dispatch_save_version. Current version 1 data needs no migration.
 
-	if not player_data.has("attributes"):
-		return false
 
-	var attribute_data: Variant = player_data["attributes"]
+func _remove_file_if_present(path: String) -> bool:
+	if not FileAccess.file_exists(path):
+		return true
 
-	if typeof(attribute_data) != TYPE_DICTIONARY:
-		return false
+	return DirAccess.remove_absolute(ProjectSettings.globalize_path(path)) == OK
 
-	for key in [
-		"strength",
-		"dexterity",
-		"intelligence",
-		"vitality",
-		"unspent_points",
-	]:
-		if not attribute_data.has(key) or not _is_number(attribute_data[key]):
-			return false
 
-		if int(attribute_data[key]) < 0:
-			return false
-
-	if player_data.has("equipment"):
-		var equipment_data: Variant = player_data["equipment"]
-
-		if typeof(equipment_data) != TYPE_DICTIONARY:
-			return false
-
-		for slot_key in equipment_data:
-			if (
-				typeof(slot_key) != TYPE_STRING
-				and typeof(slot_key) != TYPE_STRING_NAME
-			):
-				return false
-
-			var item_id: Variant = equipment_data[slot_key]
-
-			if typeof(item_id) != TYPE_STRING and typeof(item_id) != TYPE_STRING_NAME:
-				return false
-
-	if player_data.has("inventory"):
-		var inventory_data: Variant = player_data["inventory"]
-
-		if typeof(inventory_data) != TYPE_ARRAY:
-			return false
-
-		for item_id in inventory_data:
-			if typeof(item_id) != TYPE_STRING and typeof(item_id) != TYPE_STRING_NAME:
-				return false
-
-	return true
+func _rename_file(from_path: String, to_path: String) -> bool:
+	return DirAccess.rename_absolute(
+		ProjectSettings.globalize_path(from_path),
+		ProjectSettings.globalize_path(to_path)
+	) == OK
 
 
 func _is_number(value: Variant) -> bool:

@@ -14,6 +14,7 @@ const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
 @onready var equipment = $Equipment
 @onready var inventory = $Inventory
 @onready var save_system = $SaveSystem
+@onready var save_coordinator = $SaveCoordinator
 @onready var health_label: Label = $HUD/HealthLabel
 @onready var gold_label: Label = $HUD/GoldLabel
 @onready var level_label: Label = $HUD/LevelLabel
@@ -45,6 +46,7 @@ func _ready() -> void:
 	base_attack_damage = attack_damage
 	base_max_health = health.max_health
 	base_fireball_damage = fireball_skill.damage
+	save_coordinator.setup(self, save_system, experience, attributes, inventory, equipment)
 	health.health_changed.connect(_on_health_changed)
 	health.depleted.connect(_on_health_depleted)
 	experience.experience_changed.connect(_on_experience_changed)
@@ -252,109 +254,30 @@ func unequip_equipment_to_inventory(slot: StringName) -> bool:
 
 
 func save_progression() -> bool:
-	var result: Dictionary = save_system.save_game(get_progression_save_data())
+	var result: Dictionary = save_coordinator.save_progression()
 	show_save_status(result.get("message", "Save Failed"))
 	return result.get("success", false)
 
 
 func load_progression() -> bool:
-	var result: Dictionary = save_system.load_game()
-
-	if not result.get("success", false):
-		show_save_status(result.get("message", "Load Failed"))
-		return false
-
-	var player_data: Dictionary = result.get("player_data", {})
-
-	if not apply_progression_save_data(player_data):
-		show_save_status("Load Failed: Invalid Progression")
-		return false
-
+	var result: Dictionary = save_coordinator.load_progression()
 	show_save_status(result.get("message", "Game Loaded"))
-	return true
+	return result.get("success", false)
 
 
-func get_progression_save_data() -> Dictionary:
-	return {
-		"level": experience.current_level,
-		"current_xp": experience.current_experience,
-		"gold": gold,
-		"attributes": {
-			"strength": attributes.strength,
-			"dexterity": attributes.dexterity,
-			"intelligence": attributes.intelligence,
-			"vitality": attributes.vitality,
-			"unspent_points": attributes.unspent_points,
-		},
-		"equipment": equipment.get_equipped_item_ids(),
-		"inventory": inventory.get_item_id_strings(),
-	}
+func get_gold() -> int:
+	return gold
 
 
-func apply_progression_save_data(player_data: Dictionary) -> bool:
-	var saved_level := int(player_data.get("level", 0))
-	var saved_experience := int(player_data.get("current_xp", -1))
-	var saved_experience_required: int = experience.get_experience_required_for_level(
-		saved_level
-	)
-	var attribute_data: Dictionary = player_data.get("attributes", {})
-	var saved_gold := int(player_data.get("gold", -1))
-	var saved_strength := int(attribute_data.get("strength", -1))
-	var saved_dexterity := int(attribute_data.get("dexterity", -1))
-	var saved_intelligence := int(attribute_data.get("intelligence", -1))
-	var saved_vitality := int(attribute_data.get("vitality", -1))
-	var saved_unspent_points := int(attribute_data.get("unspent_points", -1))
-	var saved_equipment_data: Variant = player_data.get("equipment", {})
-	var saved_inventory_data: Variant = player_data.get("inventory", [])
+func set_progression_restore_active(is_active: bool) -> void:
+	is_loading_progression = is_active
 
-	if (
-		saved_level < 1
-		or saved_experience < 0
-		or saved_experience >= saved_experience_required
-		or saved_gold < 0
-		or saved_strength < 0
-		or saved_dexterity < 0
-		or saved_intelligence < 0
-		or saved_vitality < 0
-		or saved_unspent_points < 0
-		or typeof(saved_equipment_data) != TYPE_DICTIONARY
-		or typeof(saved_inventory_data) != TYPE_ARRAY
-	):
-		return false
 
-	var restored_inventory_ids: Array[StringName] = []
-
-	for saved_item_id_value in saved_inventory_data:
-		if (
-			typeof(saved_item_id_value) != TYPE_STRING
-			and typeof(saved_item_id_value) != TYPE_STRING_NAME
-		):
-			return false
-
-		var saved_item_id := StringName(saved_item_id_value)
-
-		if equipment.get_item_by_id(saved_item_id) != null:
-			restored_inventory_ids.append(saved_item_id)
-
-	is_loading_progression = true
-
-	if not experience.restore_progress(saved_level, saved_experience):
-		is_loading_progression = false
-		return false
-
-	if not attributes.restore_values(
-		saved_strength,
-		saved_dexterity,
-		saved_intelligence,
-		saved_vitality,
-		saved_unspent_points
-	):
-		is_loading_progression = false
-		return false
-
-	equipment.restore_equipment(saved_equipment_data)
-	inventory.restore_item_ids(restored_inventory_ids)
+func restore_saved_gold(saved_gold: int) -> void:
 	gold = saved_gold
+
+
+func complete_progression_restore() -> void:
 	is_loading_progression = false
 	update_equipment_attribute_bonuses()
 	apply_attribute_effects()
@@ -362,7 +285,6 @@ func apply_progression_save_data(player_data: Dictionary) -> bool:
 	update_experience_display()
 	equipment_panel.update_display()
 	inventory_panel.update_display()
-	return true
 
 
 func _on_health_changed(current_health: int, max_health: int) -> void:

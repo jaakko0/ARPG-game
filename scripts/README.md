@@ -13,7 +13,10 @@
 - `inventory.gd` / `equipment.gd`: owned definition IDs and equipped definitions.
 - `loot_dropper.gd`: gold plus catalog-backed equipment spawning.
 - panel/menu/mobile scripts: prototype presentation and input adapters.
-- `save_system.gd`: versioned JSON file access and schema validation.
+- `save_coordinator.gd`: current save payload gathering, validation and component
+  restoration without storing duplicate gameplay state.
+- `save_system.gd`: JSON/file persistence, top-level version dispatch and safe
+  temporary-file replacement with one backup.
 
 Gameplay state belongs in components rather than UI scripts. Input adapters should
 call existing gameplay methods rather than duplicate gameplay logic.

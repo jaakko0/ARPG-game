@@ -22,6 +22,24 @@ small Resources/components and explicit scene composition over large frameworks.
   automatic and has no attack button.
 - Save format version is currently 1. Inventory/equipment saves use item IDs;
   unknown IDs must remain safe.
+- `scripts/save_coordinator.gd` owns current payload gathering, validation and
+  section application. Add future saved subsystems there instead of rebuilding a
+  large save dictionary in `player.gd`.
+- `scripts/save_system.gd` owns persistence, JSON and top-level version dispatch.
+  It writes through a `.tmp` file and keeps one `.bak`; it must not control gameplay.
+
+## Save version changes
+
+Do not increment the save version unless the schema actually becomes incompatible.
+For a future v1 -> v2 change:
+
+1. increment `CURRENT_SAVE_VERSION` in `save_system.gd`
+2. add a real version-1 migration case in `_dispatch_save_version`
+3. migrate a duplicated dictionary rather than active gameplay state
+4. validate the migrated current data in SaveCoordinator before applying it
+5. add old-version fixtures to the tracked regression suite
+
+Version 1 currently requires no migration and remains unchanged.
 
 ## Validation
 

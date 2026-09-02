@@ -145,7 +145,7 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 
 	var player_components_exist := true
 
-	for component_path in ["Health", "Experience", "Attributes", "Equipment", "Inventory", "SaveSystem"]:
+	for component_path in ["Health", "Experience", "Attributes", "Equipment", "Inventory", "SaveSystem", "SaveCoordinator"]:
 		if player.get_node_or_null(component_path) == null:
 			player_components_exist = false
 
@@ -154,8 +154,12 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 	_check(player.has_method("try_autoattack"), "Player autoattack path exists")
 	_check(player.has_method("try_fireball"), "Player Fireball path exists")
 	_check(player.has_method("get_movement_input"), "Player movement input path exists")
+	_check(player.has_method("save_progression") and player.has_method("load_progression"), "Player save/load command entry points exist")
+	_check(not player.has_method("get_progression_save_data"), "Player no longer builds the save payload")
+	_check(not player.has_method("apply_progression_save_data"), "Player no longer restores the save payload")
 	_check(InputMap.has_action("move_left") and InputMap.has_action("move_right"), "Movement input actions exist")
 	_check(InputMap.has_action("fireball"), "Fireball input action exists")
+	_check(InputMap.has_action("save_game") and InputMap.has_action("load_game"), "K/L save and load actions exist")
 
 	var starting_position: Vector2 = player.global_position
 	player.call("_on_mobile_movement_changed", Vector2.RIGHT)
@@ -464,7 +468,43 @@ func _test_item_catalog_and_equipment(
 func _test_save_compatibility(player: CharacterBody2D) -> void:
 	_cleanup_test_save()
 	var save_system := player.get_node("SaveSystem")
+	var save_coordinator := player.get_node("SaveCoordinator")
+	var inventory := player.get_node("Inventory")
+	var equipment := player.get_node("Equipment")
+	var experience := player.get_node("Experience")
+	var attributes := player.get_node("Attributes")
 	save_system.set("save_path", TEST_SAVE_PATH)
+	_check(save_coordinator != null, "SaveCoordinator exists")
+	_check(save_coordinator.has_method("build_current_player_data"), "SaveCoordinator owns payload gathering")
+	_check(save_coordinator.has_method("apply_player_data"), "SaveCoordinator owns payload restoration")
+
+	var state_before_failure: Dictionary = save_coordinator.call("build_current_player_data")
+	var missing_result: Dictionary = save_coordinator.call("load_progression")
+	_check(not missing_result.get("success", false), "Missing save is rejected safely")
+	_check(missing_result.get("message", "") == "No Save Found", "Missing save feedback is preserved")
+	_check(save_coordinator.call("build_current_player_data") == state_before_failure, "Missing save does not alter active state")
+
+	_write_test_save_text("{not valid json")
+	var malformed_result: Dictionary = save_coordinator.call("load_progression")
+	_check(not malformed_result.get("success", false), "Malformed JSON is rejected safely")
+	_check(save_coordinator.call("build_current_player_data") == state_before_failure, "Malformed JSON does not alter active state")
+
+	_write_test_save_text(JSON.stringify({
+		"save_version": 1,
+		"player": {"gold": "invalid"},
+	}))
+	var invalid_structure_result: Dictionary = save_coordinator.call("load_progression")
+	_check(not invalid_structure_result.get("success", false), "Invalid player structure is rejected safely")
+	_check(save_coordinator.call("build_current_player_data") == state_before_failure, "Invalid structure does not partially apply")
+
+	_write_test_save_text(JSON.stringify({
+		"save_version": 2,
+		"player": {},
+	}))
+	var unsupported_result: Dictionary = save_coordinator.call("load_progression")
+	_check(unsupported_result.get("message", "") == "Load Failed: Unsupported Save", "Unsupported future save version is explicit")
+	_check(save_coordinator.call("build_current_player_data") == state_before_failure, "Unsupported version does not alter active state")
+
 	var old_compatible_data := {
 		"level": 1,
 		"current_xp": 0,
@@ -478,30 +518,69 @@ func _test_save_compatibility(player: CharacterBody2D) -> void:
 		},
 	}
 	var old_save_result: Dictionary = save_system.call("save_game", old_compatible_data)
-	var old_load_result: Dictionary = save_system.call("load_game")
+	var old_load_result: Dictionary = save_coordinator.call("load_progression")
 	_check(old_save_result.get("success", false), "Version 1 data without newer optional item fields saves")
 	_check(old_load_result.get("success", false), "Version 1 compatibility data loads")
+	_check(player.get("gold") == 7, "Version 1 compatibility restores gold")
+	_check(inventory.call("get_item_count") == 0, "Missing optional inventory restores safely as empty")
+	_check(equipment.call("get_equipped_item", &"weapon") == null, "Missing optional equipment restores safely as empty")
 
-	var inventory := player.get_node("Inventory")
-	var equipment := player.get_node("Equipment")
-	var full_data: Dictionary = player.call("get_progression_save_data")
-	full_data["gold"] = 23
-	full_data["inventory"] = ["training_sword"]
-	full_data["equipment"] = {"weapon": "practice_blade"}
-	var save_result: Dictionary = save_system.call("save_game", full_data)
-	var load_result: Dictionary = save_system.call("load_game")
-	_check(save_result.get("success", false), "Current progression save succeeds")
-	_check(load_result.get("success", false), "Current progression load succeeds")
-	_check(player.call("apply_progression_save_data", load_result.get("player_data", {})), "Loaded progression applies")
-	_check(player.get("gold") == 23, "Loaded gold is restored")
-	_check(inventory.call("get_item_count") == 1, "Loaded inventory is restored")
-	_check(equipment.call("get_equipped_item", &"weapon") != null, "Loaded equipment is restored")
+	var full_data := {
+		"level": 3,
+		"current_xp": 17,
+		"gold": 23,
+		"attributes": {
+			"strength": 6,
+			"dexterity": 8,
+			"intelligence": 7,
+			"vitality": 6,
+			"unspent_points": 4,
+		},
+		"inventory": ["practice_blade"],
+		"equipment": {
+			"weapon": "training_sword",
+			"head": "apprentice_hood",
+			"chest": "sturdy_vest",
+		},
+	}
+	_check(save_coordinator.call("apply_player_data", full_data), "SaveCoordinator applies complete current data")
+	_check(player.call("save_progression"), "Player K-save command path succeeds through SaveCoordinator")
+	_check(player.get_node("HUD/SaveStatusLabel").text == "Game Saved", "Save feedback is preserved")
+	_check(not FileAccess.file_exists(TEST_SAVE_PATH + ".tmp"), "Successful save leaves no temporary file")
+	_check(FileAccess.file_exists(TEST_SAVE_PATH + ".bak"), "Successful replacement retains one backup")
 
-	full_data["inventory"] = ["unknown_item"]
-	full_data["equipment"] = {"weapon": "unknown_item"}
-	_check(player.call("apply_progression_save_data", full_data), "Save data with unknown item IDs remains safe")
+	_check(save_coordinator.call("apply_player_data", old_compatible_data), "State can change before round-trip load")
+	_check(player.call("load_progression"), "Player L-load command path succeeds through SaveCoordinator")
+	_check(player.get_node("HUD/SaveStatusLabel").text == "Game Loaded", "Load feedback is preserved")
+	_check(experience.get("current_level") == 3 and experience.get("current_experience") == 17, "Level and XP round-trip")
+	_check(player.get("gold") == 23, "Gold round-trips")
+	_check(
+		attributes.get("strength") == 6
+		and attributes.get("dexterity") == 8
+		and attributes.get("intelligence") == 7
+		and attributes.get("vitality") == 6
+		and attributes.get("unspent_points") == 4,
+		"Attributes and unspent points round-trip"
+	)
+	_check(inventory.call("get_item_count") == 1, "Inventory round-trips")
+	_check(equipment.call("get_equipped_item", &"weapon").item_id == &"training_sword", "Equipment round-trips")
+	var derived_stats: Dictionary = player.call("get_derived_stats_debug_data")
+	_check(derived_stats.get("autoattack_damage") == 13, "Strength and equipment recalculate autoattack damage after load")
+	_check(derived_stats.get("fireball_damage") == 28, "Intelligence and equipment recalculate Fireball damage after load")
+	_check(derived_stats.get("max_health") == 115, "Vitality and equipment recalculate max HP after load")
+
+	var unknown_item_data: Dictionary = full_data.duplicate(true)
+	unknown_item_data["inventory"] = ["unknown_item"]
+	unknown_item_data["equipment"] = {"weapon": "unknown_item"}
+	_check(save_coordinator.call("apply_player_data", unknown_item_data), "Save data with unknown item IDs remains safe")
 	_check(inventory.call("get_item_count") == 0, "Unknown inventory IDs are filtered")
 	_check(equipment.call("get_equipped_item", &"weapon") == null, "Unknown equipment IDs are ignored")
+
+	var valid_state_before_bad_load: Dictionary = save_coordinator.call("build_current_player_data")
+	_write_test_save_text("broken")
+	var final_bad_result: Dictionary = save_coordinator.call("load_progression")
+	_check(not final_bad_result.get("success", false), "Later malformed load still fails")
+	_check(save_coordinator.call("build_current_player_data") == valid_state_before_bad_load, "Failed load never corrupts restored state")
 
 
 func _find_enemy_by_name(enemies: Array[CharacterBody2D], enemy_name: String) -> CharacterBody2D:
@@ -535,10 +614,20 @@ func _find_last_node_with_script(parent: Node, script: Script) -> Node:
 
 
 func _cleanup_test_save() -> void:
-	var absolute_path := ProjectSettings.globalize_path(TEST_SAVE_PATH)
+	for path in [TEST_SAVE_PATH, TEST_SAVE_PATH + ".tmp", TEST_SAVE_PATH + ".bak"]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
-	if FileAccess.file_exists(TEST_SAVE_PATH):
-		DirAccess.remove_absolute(absolute_path)
+
+func _write_test_save_text(text: String) -> void:
+	var file := FileAccess.open(TEST_SAVE_PATH, FileAccess.WRITE)
+
+	if file == null:
+		_check(false, "Regression suite can write its isolated save fixture")
+		return
+
+	file.store_string(text)
+	file.close()
 
 
 func _check(condition: bool, description: String) -> void:

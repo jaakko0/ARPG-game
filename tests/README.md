@@ -14,5 +14,7 @@ save and removes that file after the run.
 The suite is intentionally lightweight. It verifies scene loading, core component
 contracts, enemy variants, combat paths, progression, the shared item catalog,
 inventory/equipment replacement, save compatibility, Character menu flow and
-mobile-control wiring. Manual gameplay testing is still required for feel, touch
-accuracy and visual presentation.
+mobile-control wiring. Save checks include SaveCoordinator ownership, K/L command
+paths, complete v1 round-trips, optional old fields, malformed/missing files,
+unknown item IDs, derived-stat refresh and temp-file replacement. Manual gameplay
+testing is still required for feel, touch accuracy and visual presentation.

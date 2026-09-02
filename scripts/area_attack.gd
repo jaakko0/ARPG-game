@@ -1,5 +1,7 @@
 extends Node2D
 
+const HitData = preload("res://scripts/hit_data.gd")
+
 signal telegraph_started
 signal attack_executed(hit_target: bool)
 signal state_changed(state_name: StringName)
@@ -78,13 +80,25 @@ func start_telegraph() -> void:
 
 func execute_attack(target: Node2D) -> void:
 	visible = false
-	var hit_target := is_target_in_range(target) and target.has_method("take_damage")
+	var hit_target := is_target_in_range(target) and target.has_method("take_hit")
 
 	if hit_target:
 		var hit_direction := (target.global_position - global_position).normalized()
-		target.call("take_damage", damage, hit_direction)
+		target.call("take_hit", create_attack_hit(hit_direction))
 
 	attack_executed.emit(hit_target)
+
+
+func create_attack_hit(hit_direction: Vector2) -> HitData:
+	var hit_tags: Array[StringName] = [&"enemy_attack", &"area"]
+	return HitData.new(
+		damage,
+		get_parent(),
+		hit_direction,
+		&"physical",
+		hit_tags,
+		false
+	)
 
 
 func enter_state(new_state: AttackState, duration: float) -> void:

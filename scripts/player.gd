@@ -1,6 +1,7 @@
 extends CharacterBody2D
 
 const EquipmentItemData = preload("res://scripts/equipment_item_data.gd")
+const HitData = preload("res://scripts/hit_data.gd")
 const PRIMARY_SKILL_SLOT_INDEX: int = 0
 const SECONDARY_SKILL_SLOT_INDEX: int = 1
 
@@ -17,6 +18,7 @@ const SECONDARY_SKILL_SLOT_INDEX: int = 1
 @onready var inventory = $Inventory
 @onready var save_system = $SaveSystem
 @onready var save_coordinator = $SaveCoordinator
+@onready var hit_factory = $HitFactory
 @onready var health_label: Label = $HUD/HealthLabel
 @onready var gold_label: Label = $HUD/GoldLabel
 @onready var level_label: Label = $HUD/LevelLabel
@@ -128,7 +130,7 @@ func activate_skill(slot_index: int, aim_direction: Vector2) -> bool:
 	if skill == null or not skill.has_method("try_activate"):
 		return false
 
-	return bool(skill.call("try_activate", global_position, aim_direction))
+	return bool(skill.call("try_activate", self, aim_direction, hit_factory))
 
 
 func _on_mobile_movement_changed(direction: Vector2) -> void:
@@ -168,7 +170,16 @@ func try_autoattack() -> void:
 		var hit_direction := (
 			attack_target.global_position - global_position
 		).normalized()
-		attack_target.call("take_damage", attack_damage, hit_direction)
+		var hit_tags: Array[StringName] = [&"attack", &"melee"]
+		var hit_data: HitData = hit_factory.call(
+			"create_hit",
+			attack_damage,
+			self,
+			hit_direction,
+			&"physical",
+			hit_tags
+		)
+		attack_target.call("take_hit", hit_data)
 		attack_cooldown_remaining = attack_interval
 
 
@@ -179,7 +190,7 @@ func find_nearest_enemy_in_range() -> Node2D:
 	for candidate in get_tree().get_nodes_in_group(enemy_group):
 		var enemy := candidate as Node2D
 
-		if enemy == null or not enemy.has_method("take_damage"):
+		if enemy == null or not enemy.has_method("take_hit"):
 			continue
 
 		var distance_squared := global_position.distance_squared_to(enemy.global_position)
@@ -194,8 +205,8 @@ func find_nearest_enemy_in_range() -> Node2D:
 	return nearest_enemy
 
 
-func take_damage(amount: int, hit_direction: Vector2 = Vector2.ZERO) -> void:
-	health.take_damage(amount, hit_direction)
+func take_hit(hit_data: HitData) -> int:
+	return health.apply_hit(hit_data)
 
 
 func heal(amount: int) -> void:

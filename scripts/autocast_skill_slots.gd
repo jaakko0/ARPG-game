@@ -1,6 +1,7 @@
 extends Node
 
 @onready var source := get_parent() as Node2D
+@onready var hit_factory := source.get_node_or_null("HitFactory")
 
 var skill_slots: Array[Node] = []
 
@@ -21,7 +22,7 @@ func update_autocast_skills(delta: float) -> void:
 
 	for skill in skill_slots:
 		if is_instance_valid(skill) and skill.has_method("update_autocast"):
-			skill.call("update_autocast", delta, source.global_position)
+			skill.call("update_autocast", delta, source, hit_factory)
 
 
 func get_skill_in_slot(slot_index: int) -> Node:

@@ -1,7 +1,9 @@
 extends Node
 
+const HitData = preload("res://scripts/hit_data.gd")
+
 signal health_changed(current_health: int, max_health: int)
-signal damage_taken(damage_amount: int, hit_direction: Vector2)
+signal damage_taken(applied_hit: HitData)
 signal depleted
 
 @export_range(1, 100000, 1) var max_health: int = 100
@@ -13,13 +15,13 @@ func _ready() -> void:
 	current_health = max_health
 
 
-func take_damage(amount: int, hit_direction: Vector2 = Vector2.ZERO) -> int:
-	if amount <= 0 or current_health <= 0:
+func apply_hit(hit_data: HitData) -> int:
+	if hit_data == null or hit_data.amount <= 0 or current_health <= 0:
 		return 0
 
-	var damage_amount := mini(amount, current_health)
+	var damage_amount := mini(hit_data.amount, current_health)
 	current_health -= damage_amount
-	damage_taken.emit(damage_amount, hit_direction.normalized())
+	damage_taken.emit(hit_data.with_amount(damage_amount))
 	health_changed.emit(current_health, max_health)
 
 	if current_health == 0:

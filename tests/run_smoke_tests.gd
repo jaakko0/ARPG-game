@@ -10,6 +10,8 @@ const GoldPickupScript = preload("res://scripts/gold_pickup.gd")
 const EquipmentPickupScript = preload("res://scripts/equipment_pickup.gd")
 const FireballProjectileScript = preload("res://scripts/fireball_projectile.gd")
 const EnemyProjectileScript = preload("res://scripts/enemy_projectile.gd")
+const FloatingDamageNumberScript = preload("res://scripts/floating_damage_number.gd")
+const HitDataScript = preload("res://scripts/hit_data.gd")
 
 const EXPECTED_ITEM_IDS: Array[StringName] = [
 	&"training_sword",
@@ -82,6 +84,7 @@ func _run_suite() -> void:
 	var enemies := await _test_enemy_variants(sandbox)
 
 	if player != null and not enemies.is_empty():
+		await _test_hit_data_and_critical_hits(sandbox, player, enemies)
 		await _test_lightning_arc(sandbox, player, enemies)
 		await _test_flame_nova(sandbox, player, enemies)
 		await _test_combat_and_rewards(sandbox, player, enemies)
@@ -147,11 +150,21 @@ func _test_player_and_ui(sandbox: Node2D) -> CharacterBody2D:
 
 	var player_components_exist := true
 
-	for component_path in ["Health", "Experience", "Attributes", "Equipment", "Inventory", "SaveSystem", "SaveCoordinator", "AutocastSkillSlots"]:
+	for component_path in ["Health", "Experience", "Attributes", "Equipment", "Inventory", "SaveSystem", "SaveCoordinator", "HitFactory", "AutocastSkillSlots"]:
 		if player.get_node_or_null(component_path) == null:
 			player_components_exist = false
 
 	_check(player_components_exist, "Player contains all core progression components")
+	var hit_factory := player.get_node("HitFactory")
+	_check(
+		is_equal_approx(hit_factory.get("critical_chance"), 0.1),
+		"Player prototype base critical chance is 10 percent"
+	)
+	_check(
+		is_equal_approx(hit_factory.get("critical_damage_multiplier"), 2.0),
+		"Player prototype critical damage multiplier is 2.0"
+	)
+	hit_factory.set("critical_chance", 0.0)
 
 	_check(player.has_method("try_autoattack"), "Player autoattack path exists")
 	_check(player.has_method("activate_skill"), "Player generic skill-slot activation exists")
@@ -468,6 +481,381 @@ func _test_enemy_variants(sandbox: Node2D) -> Array[CharacterBody2D]:
 	return enemies
 
 
+func _test_hit_data_and_critical_hits(
+	sandbox: Node2D,
+	player: CharacterBody2D,
+	enemies: Array[CharacterBody2D]
+) -> void:
+	var basic := _find_enemy_by_name(enemies, "Enemy")
+	var heavy := _find_enemy_by_name(enemies, "HeavyEnemy")
+	var elite := _find_enemy_by_name(enemies, "EliteBrute")
+	var ranged := _find_enemy_by_name(enemies, "RangedCultist")
+	var hit_factory := player.get_node("HitFactory")
+	var fireball_skill := player.get_node("FireballSkill")
+	var lightning_arc_skill := player.get_node("LightningArcSkill")
+	var autocast_skill_slots := player.get_node("AutocastSkillSlots")
+	var flame_nova_skill := autocast_skill_slots.get_node("FlameNovaSkill")
+
+	if basic == null or heavy == null or elite == null or ranged == null:
+		_check(false, "HitData and critical-hit test actors are available")
+		return
+
+	autocast_skill_slots.set_physics_process(false)
+
+	for enemy in enemies:
+		enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+		enemy.get_node("Health").call("restore_full")
+
+	var hit_tags: Array[StringName] = [&"test", &"direct"]
+	var sample_hit := HitDataScript.new(
+		7,
+		player,
+		Vector2.RIGHT,
+		&"physical",
+		hit_tags,
+		false
+	)
+	_check(
+		sample_hit.get("amount") == 7
+		and sample_hit.get("source") == player
+		and sample_hit.get("damage_type") == &"physical"
+		and sample_hit.get("tags").has(&"test")
+		and not sample_hit.get("is_critical"),
+		"HitData carries amount, source, direction, type, tags and critical flag"
+	)
+
+	var basic_health := basic.get_node("Health")
+	_check(basic_health.has_method("apply_hit"), "Health exposes the authoritative HitData interface")
+	_check(not basic_health.has_method("take_damage"), "Health has no competing legacy damage interface")
+	_check(basic.has_method("take_hit") and not basic.has_method("take_damage"), "Enemies expose only the HitData damage boundary")
+	_check(player.has_method("take_hit") and not player.has_method("take_damage"), "Player exposes only the HitData damage boundary")
+
+	var applied_hits: Array[RefCounted] = []
+	var capture_applied_hit := func(applied_hit) -> void:
+		applied_hits.append(applied_hit)
+	basic_health.connect("damage_taken", capture_applied_hit)
+	var health_before: int = basic_health.get("current_health")
+	var applied_damage: int = basic_health.call("apply_hit", sample_hit)
+	basic_health.disconnect("damage_taken", capture_applied_hit)
+	_check(
+		applied_damage == 7 and basic_health.get("current_health") == health_before - 7,
+		"Health subtracts normal HitData damage exactly once"
+	)
+	_check(
+		applied_hits.size() == 1
+		and applied_hits[0].get("amount") == 7
+		and applied_hits[0].get("source") == player
+		and applied_hits[0].get("hit_direction").is_equal_approx(Vector2.RIGHT),
+		"Health emits the applied hit with metadata preserved"
+	)
+	basic_health.call("restore_full")
+
+	hit_factory.set("critical_chance", 0.0)
+	var normal_hit: RefCounted = hit_factory.call(
+		"create_hit",
+		13,
+		player,
+		Vector2.UP,
+		&"fire",
+		hit_tags
+	)
+	_check(
+		normal_hit.get("amount") == 13 and not normal_hit.get("is_critical"),
+		"Zero critical chance deterministically creates a normal hit"
+	)
+
+	hit_factory.set("critical_chance", 1.0)
+	hit_factory.set("critical_damage_multiplier", 2.0)
+	var critical_hit: RefCounted = hit_factory.call(
+		"create_hit",
+		13,
+		player,
+		Vector2.UP,
+		&"fire",
+		hit_tags
+	)
+	_check(
+		critical_hit.get("amount") == 26 and critical_hit.get("is_critical"),
+		"Guaranteed critical hit applies the configured 2.0 multiplier"
+	)
+	_check(
+		critical_hit.get("source") == player
+		and critical_hit.get("damage_type") == &"fire"
+		and critical_hit.get("tags").has(&"direct"),
+		"Critical calculation preserves source, damage type and tags"
+	)
+
+	basic.global_position = player.global_position + Vector2(100.0, 0.0)
+	basic_health.call("restore_full")
+	var autoattack_hits: Array[RefCounted] = []
+	var capture_autoattack_hit := func(applied_hit) -> void:
+		autoattack_hits.append(applied_hit)
+	basic_health.connect("damage_taken", capture_autoattack_hit)
+	var damage_numbers_before := _count_nodes_with_script(sandbox, FloatingDamageNumberScript)
+	player.set("attack_cooldown_remaining", 0.0)
+	player.call("try_autoattack")
+	basic_health.disconnect("damage_taken", capture_autoattack_hit)
+	_check(
+		basic_health.get("current_health") == basic_health.get("max_health") - 20,
+		"Guaranteed autoattack critical deals doubled damage"
+	)
+	_check(
+		autoattack_hits.size() == 1
+		and autoattack_hits[0].get("is_critical")
+		and autoattack_hits[0].get("damage_type") == &"physical"
+		and autoattack_hits[0].get("source") == player,
+		"Autoattack critical carries physical player-hit metadata"
+	)
+	_check(
+		_count_nodes_with_script(sandbox, FloatingDamageNumberScript) == damage_numbers_before + 1,
+		"Critical hit reaches the shared combat feedback path"
+	)
+	var critical_number := _find_last_node_with_script(sandbox, FloatingDamageNumberScript)
+	_check(
+		critical_number != null
+		and "CRIT" in critical_number.get_node("DamageLabel").text,
+		"Critical damage number is visibly labelled CRIT"
+	)
+
+	for enemy in enemies:
+		enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+		enemy.get_node("Health").call("restore_full")
+
+	heavy.global_position = player.global_position + Vector2(130.0, 0.0)
+	var heavy_health := heavy.get_node("Health")
+	var fireball_hits: Array[RefCounted] = []
+	var capture_fireball_hit := func(applied_hit) -> void:
+		fireball_hits.append(applied_hit)
+	heavy_health.connect("damage_taken", capture_fireball_hit)
+	var heavy_health_before: int = heavy_health.get("current_health")
+	fireball_skill.set("cooldown_remaining", 0.0)
+	player.set("facing_direction", Vector2.RIGHT)
+	_check(player.call("activate_skill", 0, Vector2.RIGHT), "Fireball still activates with HitData enabled")
+
+	for step in 20:
+		await physics_frame
+
+		if heavy_health.get("current_health") < heavy_health_before:
+			break
+
+	heavy_health.disconnect("damage_taken", capture_fireball_hit)
+	_check(
+		heavy_health.get("current_health") == heavy_health_before - 40,
+		"Guaranteed Fireball critical deals doubled damage"
+	)
+	_check(
+		fireball_hits.size() == 1
+		and fireball_hits[0].get("is_critical")
+		and fireball_hits[0].get("damage_type") == &"fire"
+		and fireball_hits[0].get("source") == player,
+		"Fireball hit carries fire, critical and player-source metadata"
+	)
+
+	for child in sandbox.get_children():
+		if child.get_script() == FireballProjectileScript:
+			child.queue_free()
+
+	for enemy in enemies:
+		enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+		enemy.get_node("Health").call("restore_full")
+
+	heavy.global_position = player.global_position + Vector2(120.0, 0.0)
+	elite.global_position = player.global_position + Vector2(200.0, 0.0)
+	var elite_health := elite.get_node("Health")
+	var lightning_first_hits: Array[RefCounted] = []
+	var lightning_chain_hits: Array[RefCounted] = []
+	var capture_lightning_first := func(applied_hit) -> void:
+		lightning_first_hits.append(applied_hit)
+	var capture_lightning_chain := func(applied_hit) -> void:
+		lightning_chain_hits.append(applied_hit)
+	heavy_health.connect("damage_taken", capture_lightning_first)
+	elite_health.connect("damage_taken", capture_lightning_chain)
+	heavy_health_before = heavy_health.get("current_health")
+	var elite_health_before: int = elite_health.get("current_health")
+	lightning_arc_skill.set("cooldown_remaining", 0.0)
+	_check(player.call("activate_skill", 1, Vector2.RIGHT), "Lightning Arc still activates with HitData enabled")
+	heavy_health.disconnect("damage_taken", capture_lightning_first)
+	elite_health.disconnect("damage_taken", capture_lightning_chain)
+	_check(
+		heavy_health.get("current_health") == heavy_health_before - 32,
+		"Lightning Arc first hit rolls and applies its own critical"
+	)
+	_check(
+		elite_health.get("current_health") == elite_health_before - 24,
+		"Lightning Arc reduced chain hit rolls and applies its own critical"
+	)
+	_check(
+		lightning_first_hits.size() == 1
+		and lightning_chain_hits.size() == 1
+		and lightning_first_hits[0].get("is_critical")
+		and lightning_chain_hits[0].get("is_critical")
+		and lightning_first_hits[0].get("damage_type") == &"lightning"
+		and lightning_chain_hits[0].get("tags").has(&"chain"),
+		"Lightning first and chain hits carry independent critical metadata"
+	)
+
+	heavy_health.call("restore_full")
+	elite_health.call("restore_full")
+	heavy.global_position = player.global_position + Vector2(100.0, 0.0)
+	elite.global_position = player.global_position + Vector2(-100.0, 0.0)
+	var nova_heavy_hits: Array[RefCounted] = []
+	var nova_elite_hits: Array[RefCounted] = []
+	var capture_nova_heavy := func(applied_hit) -> void:
+		nova_heavy_hits.append(applied_hit)
+	var capture_nova_elite := func(applied_hit) -> void:
+		nova_elite_hits.append(applied_hit)
+	heavy_health.connect("damage_taken", capture_nova_heavy)
+	elite_health.connect("damage_taken", capture_nova_elite)
+	heavy_health_before = heavy_health.get("current_health")
+	elite_health_before = elite_health.get("current_health")
+	flame_nova_skill.set("time_until_ready", 0.0)
+	fireball_skill.set("cooldown_remaining", 0.0)
+	lightning_arc_skill.set("cooldown_remaining", 0.0)
+	autocast_skill_slots.call("update_autocast_skills", 0.0)
+	heavy_health.disconnect("damage_taken", capture_nova_heavy)
+	elite_health.disconnect("damage_taken", capture_nova_elite)
+	_check(
+		heavy_health.get("current_health") == heavy_health_before - 44
+		and elite_health.get("current_health") == elite_health_before - 44,
+		"Each Flame Nova target rolls and receives its own critical hit"
+	)
+	_check(
+		nova_heavy_hits.size() == 1
+		and nova_elite_hits.size() == 1
+		and nova_heavy_hits[0].get("is_critical")
+		and nova_elite_hits[0].get("is_critical")
+		and nova_heavy_hits[0].get("damage_type") == &"fire",
+		"Flame Nova criticals carry fire metadata through shared feedback"
+	)
+	_check(
+		is_zero_approx(fireball_skill.get("cooldown_remaining"))
+		and is_zero_approx(lightning_arc_skill.get("cooldown_remaining")),
+		"Flame Nova criticals do not affect active-skill cooldowns"
+	)
+
+	var player_health := player.get_node("Health")
+	player_health.call("restore_full")
+	var contact_hit: RefCounted = basic.call("create_contact_hit", Vector2.LEFT)
+	var player_health_before: int = player_health.get("current_health")
+	player.call("take_hit", contact_hit)
+	_check(
+		player_health.get("current_health") == player_health_before - basic.get("contact_damage")
+		and contact_hit.get("source") == basic
+		and contact_hit.get("damage_type") == &"physical"
+		and not contact_hit.get("is_critical"),
+		"Enemy contact damage uses non-critical physical HitData"
+	)
+
+	player_health.call("restore_full")
+	heavy.global_position = player.global_position + Vector2(100.0, 0.0)
+	var area_attack := heavy.get_node("AreaAttack")
+	var area_hits: Array[RefCounted] = []
+	var capture_area_hit := func(applied_hit) -> void:
+		area_hits.append(applied_hit)
+	player_health.connect("damage_taken", capture_area_hit)
+	player_health_before = player_health.get("current_health")
+	area_attack.call("execute_attack", player)
+	player_health.disconnect("damage_taken", capture_area_hit)
+	_check(
+		player_health.get("current_health") == player_health_before - area_attack.get("damage"),
+		"Heavy and Elite AreaAttack path applies HitData damage"
+	)
+	_check(
+		area_hits.size() == 1
+		and area_hits[0].get("source") == heavy
+		and area_hits[0].get("damage_type") == &"physical"
+		and not area_hits[0].get("is_critical"),
+		"Enemy AreaAttack carries non-critical physical metadata"
+	)
+
+	player_health.call("restore_full")
+	var ranged_attack := ranged.get_node("RangedAttack")
+	var enemy_projectile := ranged_attack.call("fire_projectile", player) as CharacterBody2D
+	_check(enemy_projectile != null, "Ranged enemy still creates a projectile for HitData")
+
+	if enemy_projectile != null:
+		var ranged_hit: RefCounted = enemy_projectile.call("create_hit_data")
+		player_health_before = player_health.get("current_health")
+		player.call("take_hit", ranged_hit)
+		_check(
+			player_health.get("current_health") == player_health_before - ranged_attack.get("damage"),
+			"Ranged projectile HitData damages the player through Health"
+		)
+		_check(
+			ranged_hit.get("source") == ranged
+			and ranged_hit.get("damage_type") == &"physical"
+			and ranged_hit.get("tags").has(&"projectile")
+			and not ranged_hit.get("is_critical"),
+			"Ranged projectile carries source, type, tags and non-critical metadata"
+		)
+		enemy_projectile.queue_free()
+
+	for enemy in enemies:
+		enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+		enemy.get_node("Health").call("restore_full")
+
+	var enemy_scene := load("res://scenes/enemy.tscn") as PackedScene
+	var critical_target := enemy_scene.instantiate() as CharacterBody2D
+	sandbox.add_child(critical_target)
+	critical_target.global_position = player.global_position + Vector2(100.0, 0.0)
+	critical_target.set_physics_process(false)
+	critical_target.set("experience_reward", 1)
+	critical_target.get_node("LootDropper").set("equipment_drop_chance", 1.0)
+	var critical_target_health := critical_target.get_node("Health")
+	critical_target_health.call(
+		"apply_hit",
+		_make_test_hit(critical_target_health.get("current_health") - 1, player)
+	)
+	var critical_kill_hits: Array[RefCounted] = []
+	var capture_critical_kill := func(applied_hit) -> void:
+		critical_kill_hits.append(applied_hit)
+	critical_target_health.connect("damage_taken", capture_critical_kill)
+	var experience := player.get_node("Experience")
+	var experience_before: int = experience.get("current_experience")
+	var gold_pickups_before := _count_nodes_with_script(sandbox, GoldPickupScript)
+	var equipment_pickups_before := _count_nodes_with_script(sandbox, EquipmentPickupScript)
+	player.set("attack_cooldown_remaining", 0.0)
+	player.call("try_autoattack")
+	critical_target_health.disconnect("damage_taken", capture_critical_kill)
+	_check(
+		critical_target.get("death_processed")
+		and critical_kill_hits.size() == 1
+		and critical_kill_hits[0].get("is_critical"),
+		"Critical killing hit uses the shared protected enemy death path"
+	)
+	_check(
+		experience.get("current_experience") == experience_before + 1
+		and _count_nodes_with_script(sandbox, GoldPickupScript) == gold_pickups_before + 1
+		and _count_nodes_with_script(sandbox, EquipmentPickupScript) == equipment_pickups_before + 1,
+		"Critical kill awards XP and loot exactly once"
+	)
+	var experience_after_kill: int = experience.get("current_experience")
+	var gold_pickups_after_kill := _count_nodes_with_script(sandbox, GoldPickupScript)
+	var equipment_pickups_after_kill := _count_nodes_with_script(sandbox, EquipmentPickupScript)
+	critical_target.call("_on_health_depleted")
+	_check(
+		experience.get("current_experience") == experience_after_kill
+		and _count_nodes_with_script(sandbox, GoldPickupScript) == gold_pickups_after_kill
+		and _count_nodes_with_script(sandbox, EquipmentPickupScript) == equipment_pickups_after_kill,
+		"Repeated depletion cannot duplicate critical-kill rewards"
+	)
+
+	hit_factory.set("critical_chance", 0.0)
+	hit_factory.set("critical_damage_multiplier", 2.0)
+	player_health.call("restore_full")
+
+	for enemy in enemies:
+		if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
+			enemy.global_position = player.global_position + Vector2(1000.0, 1000.0)
+			enemy.get_node("Health").call("restore_full")
+
+	for visual_group in [&"lightning_arc_visual", &"flame_nova_visual"]:
+		for visual in get_nodes_in_group(visual_group):
+			visual.queue_free()
+
+	await process_frame
+
+
 func _test_lightning_arc(
 	sandbox: Node2D,
 	player: CharacterBody2D,
@@ -583,7 +971,10 @@ func _test_lightning_arc(
 	lethal_target.set_physics_process(false)
 	lethal_target.get_node("LootDropper").set("equipment_drop_chance", 0.0)
 	var lethal_health := lethal_target.get_node("Health")
-	lethal_health.call("take_damage", lethal_health.get("current_health") - 1)
+	lethal_health.call(
+		"apply_hit",
+		_make_test_hit(lethal_health.get("current_health") - 1, player)
+	)
 	var experience := player.get_node("Experience")
 	var experience_before: int = experience.get("current_experience")
 	var gold_pickups_before := _count_nodes_with_script(sandbox, GoldPickupScript)
@@ -770,7 +1161,10 @@ func _test_flame_nova(
 	flame_nova_skill.set("time_until_ready", 0.0)
 	player.set("starting_position", player.global_position)
 	var player_health := player.get_node("Health")
-	player_health.call("take_damage", player_health.get("current_health"))
+	player_health.call(
+		"apply_hit",
+		_make_test_hit(player_health.get("current_health"), basic)
+	)
 	autocast_skill_slots.call("update_autocast_skills", 0.0)
 	_check(
 		basic_health.get("current_health") == basic_health_before
@@ -804,7 +1198,10 @@ func _test_flame_nova(
 		lethal_target.set("experience_reward", 1)
 		lethal_target.get_node("LootDropper").set("equipment_drop_chance", 0.0)
 		var lethal_health := lethal_target.get_node("Health")
-		lethal_health.call("take_damage", lethal_health.get("current_health") - 1)
+		lethal_health.call(
+			"apply_hit",
+			_make_test_hit(lethal_health.get("current_health") - 1, player)
+		)
 		lethal_targets.append(lethal_target)
 
 	var experience := player.get_node("Experience")
@@ -905,7 +1302,10 @@ func _test_combat_and_rewards(
 	var experience_before: int = experience.get("current_experience")
 	var gold_pickups_before := _count_nodes_with_script(sandbox, GoldPickupScript)
 	var equipment_pickups_before := _count_nodes_with_script(sandbox, EquipmentPickupScript)
-	basic.call("take_damage", basic_health.get("current_health"))
+	basic.call(
+		"take_hit",
+		_make_test_hit(basic_health.get("current_health"), player)
+	)
 	basic.call("_on_health_depleted")
 	_check(basic.get("death_processed"), "Enemy death is processed")
 	_check(
@@ -1149,6 +1549,24 @@ func _find_enemy_by_name(enemies: Array[CharacterBody2D], enemy_name: String) ->
 			return enemy
 
 	return null
+
+
+func _make_test_hit(
+	amount: int,
+	source: Node = null,
+	hit_direction: Vector2 = Vector2.ZERO,
+	damage_type: StringName = &"physical",
+	tags: Array[StringName] = [],
+	is_critical: bool = false
+) -> RefCounted:
+	return HitDataScript.new(
+		amount,
+		source,
+		hit_direction,
+		damage_type,
+		tags,
+		is_critical
+	)
 
 
 func _count_nodes_with_script(parent: Node, script: Script) -> int:

@@ -1,10 +1,13 @@
 extends Node
 
+const HitData = preload("res://scripts/hit_data.gd")
+
 @export var enemy_group: StringName = &"enemy"
 @export_range(0.1, 60.0, 0.1) var autocast_interval: float = 5.0
 @export_range(1.0, 1000.0, 1.0) var radius: float = 170.0
 @export var damage: int = 22
 @export var intelligence_damage_per_point: int = 2
+@export var damage_type: StringName = &"fire"
 @export var visual_color: Color = Color(1.0, 0.32, 0.08, 0.9)
 @export_range(1.0, 30.0, 1.0) var visual_width: float = 10.0
 @export_range(0.05, 1.0, 0.01) var visual_lifetime: float = 0.3
@@ -22,16 +25,17 @@ func apply_intelligence_bonus(attribute_bonus: int) -> void:
 	damage = base_damage + maxi(attribute_bonus, 0) * intelligence_damage_per_point
 
 
-func update_autocast(delta: float, source_position: Vector2) -> bool:
+func update_autocast(delta: float, source: Node2D, hit_factory: Node) -> bool:
 	time_until_ready = maxf(time_until_ready - delta, 0.0)
 
-	if time_until_ready > 0.0:
+	if time_until_ready > 0.0 or source == null or not is_instance_valid(source):
 		return false
 
-	return try_activate(source_position)
+	return try_activate(source, hit_factory)
 
 
-func try_activate(source_position: Vector2) -> bool:
+func try_activate(source: Node2D, hit_factory: Node) -> bool:
+	var source_position := source.global_position
 	var targets := find_targets_in_radius(source_position)
 
 	if targets.is_empty():
@@ -40,7 +44,7 @@ func try_activate(source_position: Vector2) -> bool:
 	var targets_damaged := 0
 
 	for target in targets:
-		if damage_target(target, source_position):
+		if damage_target(target, source, hit_factory, source_position):
 			targets_damaged += 1
 
 	if targets_damaged == 0:
@@ -81,7 +85,7 @@ func is_valid_target(target: Node2D) -> bool:
 		target == null
 		or not is_instance_valid(target)
 		or target.is_queued_for_deletion()
-		or not target.has_method("take_damage")
+		or not target.has_method("take_hit")
 	):
 		return false
 
@@ -93,13 +97,46 @@ func is_valid_target(target: Node2D) -> bool:
 	return true
 
 
-func damage_target(target: Node2D, source_position: Vector2) -> bool:
+func damage_target(
+	target: Node2D,
+	source: Node,
+	hit_factory: Node,
+	source_position: Vector2
+) -> bool:
 	if not is_valid_target(target):
 		return false
 
 	var hit_direction := (target.global_position - source_position).normalized()
-	target.call("take_damage", damage, hit_direction)
+	var hit_tags: Array[StringName] = [&"skill", &"autocast", &"area"]
+	var hit_data := create_hit_data(source, hit_factory, hit_direction, hit_tags)
+	target.call("take_hit", hit_data)
 	return true
+
+
+func create_hit_data(
+	source: Node,
+	hit_factory: Node,
+	hit_direction: Vector2,
+	hit_tags: Array[StringName]
+) -> HitData:
+	if is_instance_valid(hit_factory) and hit_factory.has_method("create_hit"):
+		return hit_factory.call(
+			"create_hit",
+			damage,
+			source,
+			hit_direction,
+			damage_type,
+			hit_tags
+		)
+
+	return HitData.new(
+		damage,
+		source,
+		hit_direction,
+		damage_type,
+		hit_tags,
+		false
+	)
 
 
 func spawn_visual(source_position: Vector2) -> void:

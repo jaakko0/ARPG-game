@@ -96,7 +96,8 @@ func fire_projectile(target: Node2D) -> CharacterBody2D:
 		aim_direction,
 		damage,
 		projectile_speed,
-		projectile_lifetime
+		projectile_lifetime,
+		get_parent()
 	)
 	projectile_fired.emit(projectile)
 	return projectile

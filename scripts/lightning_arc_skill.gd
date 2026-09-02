@@ -1,5 +1,7 @@
 extends Node
 
+const HitData = preload("res://scripts/hit_data.gd")
+
 @export var enemy_group: StringName = &"enemy"
 @export_range(1.0, 2000.0, 1.0) var target_range: float = 320.0
 @export_range(1.0, 1000.0, 1.0) var chain_radius: float = 200.0
@@ -7,6 +9,7 @@ extends Node
 @export_range(0.0, 1.0, 0.05) var chain_damage_multiplier: float = 0.75
 @export_range(0.1, 30.0, 0.1) var cooldown: float = 1.5
 @export var intelligence_damage_per_point: int = 2
+@export var damage_type: StringName = &"lightning"
 @export var visual_color: Color = Color(0.45, 0.9, 1.0, 1.0)
 @export_range(1.0, 30.0, 1.0) var visual_width: float = 8.0
 @export_range(0.0, 30.0, 1.0) var visual_jitter: float = 8.0
@@ -28,10 +31,11 @@ func apply_intelligence_bonus(attribute_bonus: int) -> void:
 	damage = base_damage + maxi(attribute_bonus, 0) * intelligence_damage_per_point
 
 
-func try_activate(source_position: Vector2, _aim_direction: Vector2) -> bool:
-	if cooldown_remaining > 0.0:
+func try_activate(source: Node2D, _aim_direction: Vector2, hit_factory: Node) -> bool:
+	if cooldown_remaining > 0.0 or source == null or not is_instance_valid(source):
 		return false
 
+	var source_position := source.global_position
 	var first_target := find_nearest_target(source_position, target_range)
 
 	if first_target == null:
@@ -39,7 +43,7 @@ func try_activate(source_position: Vector2, _aim_direction: Vector2) -> bool:
 
 	var first_position := first_target.global_position
 
-	if not damage_target(first_target, damage, source_position):
+	if not damage_target(first_target, damage, source, hit_factory, source_position, false):
 		return false
 
 	var hit_positions: Array[Vector2] = [source_position, first_position]
@@ -48,7 +52,14 @@ func try_activate(source_position: Vector2, _aim_direction: Vector2) -> bool:
 	if second_target != null:
 		var second_position := second_target.global_position
 
-		if damage_target(second_target, get_chain_damage(), first_position):
+		if damage_target(
+			second_target,
+			get_chain_damage(),
+			source,
+			hit_factory,
+			first_position,
+			true
+		):
 			hit_positions.append(second_position)
 
 	spawn_visual(hit_positions)
@@ -88,7 +99,7 @@ func is_valid_target(target: Node2D, excluded_target: Node = null) -> bool:
 		or target == excluded_target
 		or not is_instance_valid(target)
 		or target.is_queued_for_deletion()
-		or not target.has_method("take_damage")
+		or not target.has_method("take_hit")
 	):
 		return false
 
@@ -100,13 +111,61 @@ func is_valid_target(target: Node2D, excluded_target: Node = null) -> bool:
 	return true
 
 
-func damage_target(target: Node2D, amount: int, source_position: Vector2) -> bool:
+func damage_target(
+	target: Node2D,
+	amount: int,
+	source: Node,
+	hit_factory: Node,
+	hit_origin: Vector2,
+	is_chain_hit: bool
+) -> bool:
 	if not is_valid_target(target) or amount <= 0:
 		return false
 
-	var hit_direction := (target.global_position - source_position).normalized()
-	target.call("take_damage", amount, hit_direction)
+	var hit_direction := (target.global_position - hit_origin).normalized()
+	var hit_tags: Array[StringName] = [&"skill"]
+
+	if is_chain_hit:
+		hit_tags.append(&"chain")
+	else:
+		hit_tags.append(&"direct")
+
+	var hit_data := create_hit_data(
+		amount,
+		source,
+		hit_factory,
+		hit_direction,
+		hit_tags
+	)
+	target.call("take_hit", hit_data)
 	return true
+
+
+func create_hit_data(
+	amount: int,
+	source: Node,
+	hit_factory: Node,
+	hit_direction: Vector2,
+	hit_tags: Array[StringName]
+) -> HitData:
+	if is_instance_valid(hit_factory) and hit_factory.has_method("create_hit"):
+		return hit_factory.call(
+			"create_hit",
+			amount,
+			source,
+			hit_direction,
+			damage_type,
+			hit_tags
+		)
+
+	return HitData.new(
+		amount,
+		source,
+		hit_direction,
+		damage_type,
+		hit_tags,
+		false
+	)
 
 
 func get_chain_damage() -> int:

@@ -1,5 +1,7 @@
 extends Node
 
+const HitData = preload("res://scripts/hit_data.gd")
+
 @export var damage_number_scene: PackedScene
 @export_node_path("Node2D") var visual_path: NodePath = NodePath("../Placeholder")
 @export var damage_number_offset: Vector2 = Vector2(0.0, -82.0)
@@ -21,15 +23,15 @@ func _ready() -> void:
 		original_visual_modulate = visual.modulate
 
 
-func show_damage(damage_amount: int, hit_direction: Vector2) -> void:
-	if damage_amount <= 0:
+func show_damage(hit_data: HitData) -> void:
+	if hit_data == null or hit_data.amount <= 0:
 		return
 
-	spawn_damage_number(damage_amount)
-	play_hit_reaction(hit_direction)
+	spawn_damage_number(hit_data)
+	play_hit_reaction(hit_data.hit_direction)
 
 
-func spawn_damage_number(damage_amount: int) -> void:
+func spawn_damage_number(hit_data: HitData) -> void:
 	if damage_number_scene == null or damage_target == null:
 		return
 
@@ -45,7 +47,7 @@ func spawn_damage_number(damage_amount: int) -> void:
 
 	scene_root.add_child(damage_number)
 	damage_number.global_position = damage_target.global_position + damage_number_offset
-	damage_number.call("setup", damage_amount)
+	damage_number.call("setup", hit_data)
 
 
 func play_hit_reaction(hit_direction: Vector2) -> void:

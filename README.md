@@ -68,7 +68,7 @@ arena supports:
 - gold and equipment drops, inventory, equipment and a Character menu
 - XP, levels, attribute allocation and equipment-derived attribute bonuses
 - versioned JSON save/load for current player progression
-- combat feedback, including damage numbers and hit reactions
+- player critical hits and combat feedback, including damage numbers and hit reactions
 - Basic, Fast, Heavy, Elite Brute and Ranged Cultist enemies
 - reusable AreaAttack and RangedAttack behaviours
 
@@ -95,7 +95,10 @@ in the GDD are not implemented unless they are listed above.
 
 ## Current Architecture
 
-- `Health` is the shared damage/health path for the player and enemies.
+- `HitData` carries each hit's amount, source, direction, damage type, tags and
+  critical flag. `Health` is the single authoritative place that subtracts HP.
+- The player's small `HitFactory` owns the configurable prototype critical chance
+  and multiplier; enemy hits currently remain non-critical.
 - Static equipment definitions are Godot Resources with stable item IDs.
 - `data/item_catalog.tres` is the authoritative prototype item catalog and
   default equipment drop pool.

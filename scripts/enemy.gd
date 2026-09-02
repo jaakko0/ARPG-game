@@ -1,5 +1,7 @@
 extends CharacterBody2D
 
+const HitData = preload("res://scripts/hit_data.gd")
+
 @export var move_speed: float = 120.0
 @export var detection_radius: float = 450.0
 @export var target_group: StringName = &"player"
@@ -63,7 +65,7 @@ func try_contact_attack() -> void:
 		if target_body != null:
 			hit_direction = (target_body.global_position - global_position).normalized()
 
-		damage_target.call("take_damage", contact_damage, hit_direction)
+		damage_target.call("take_hit", create_contact_hit(hit_direction))
 		attack_cooldown_remaining = attack_interval
 
 
@@ -74,15 +76,27 @@ func find_contact_damage_target() -> Node:
 		if (
 			collider != null
 			and collider.is_in_group(target_group)
-			and collider.has_method("take_damage")
+			and collider.has_method("take_hit")
 		):
 			return collider
 
 	return null
 
 
-func take_damage(amount: int, hit_direction: Vector2 = Vector2.ZERO) -> void:
-	health.take_damage(amount, hit_direction)
+func create_contact_hit(hit_direction: Vector2) -> HitData:
+	var hit_tags: Array[StringName] = [&"enemy_attack", &"contact"]
+	return HitData.new(
+		contact_damage,
+		self,
+		hit_direction,
+		&"physical",
+		hit_tags,
+		false
+	)
+
+
+func take_hit(hit_data: HitData) -> int:
+	return health.apply_hit(hit_data)
 
 
 func is_elite() -> bool:
